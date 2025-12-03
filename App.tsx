@@ -491,49 +491,84 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
   
   // Is on Free Plan?
   const isFreePlan = user.subscription.planType === 'free';
+  
+  // Logic to determine if pricing should be visible
+  // Visible if: NOT free plan OR Free plan AND usage limit reached OR Admin
+  const canSeePricing = !isFreePlan || user.subscription.usageCount >= 3 || user.isAdmin;
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 font-sans flex flex-col">
-      <Header 
-        userName={user.name} 
-        isAdmin={user.isAdmin} 
-        onLogout={onLogout} 
-        viewMode={adminViewMode}
-        onToggleViewMode={() => setAdminViewMode(prev => prev === 'admin' ? 'user' : 'admin')}
-        onManageSubscription={onManageSubscription}
-      />
+    <div className="min-h-screen bg-transparent text-slate-200 font-sans flex flex-col pt-safe pb-safe pl-safe pr-safe">
+      <div className="sticky top-0 z-20">
+         <Header 
+            userName={user.name} 
+            isAdmin={user.isAdmin} 
+            onLogout={onLogout} 
+            viewMode={adminViewMode}
+            onToggleViewMode={() => setAdminViewMode(prev => prev === 'admin' ? 'user' : 'admin')}
+            onManageSubscription={canSeePricing ? onManageSubscription : undefined}
+         />
+      </div>
       
-      {/* Navigation Bar */}
-      <div className="bg-slate-900 border-b border-slate-800">
-          <div className="container mx-auto px-4">
-              <div className="flex space-x-8 overflow-x-auto">
+      {/* Navigation Bar - UPDATED: Vibrant Purple + Big Shadowed Buttons */}
+      <div className="bg-gradient-to-r from-purple-700 via-violet-600 to-indigo-600 shadow-xl border-b border-purple-400/30 sticky top-[72px] z-10">
+          <div className="container mx-auto px-4 py-3">
+              <div className="flex space-x-4 overflow-x-auto pb-2 scrollbar-hide">
+                   {/* Resume Health Check */}
                    <button 
                     onClick={() => setActiveView('health-check')}
-                    className={`py-4 px-2 border-b-2 font-medium transition-colors whitespace-nowrap ${activeView === 'health-check' ? 'border-teal-500 text-teal-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+                    className={`flex-shrink-0 px-6 py-3 rounded-full font-bold shadow-lg transition-all duration-300 transform hover:-translate-y-1 ${
+                        activeView === 'health-check' 
+                        ? 'bg-white text-purple-700 scale-105 ring-4 ring-purple-300' 
+                        : 'bg-purple-800/40 text-purple-100 hover:bg-purple-500 hover:text-white hover:shadow-xl'
+                    }`}
                   >
                       Resume Health Check
                   </button>
+
+                  {/* Job-Specific Optimizer - Special Highlighting */}
                   <button 
                     onClick={() => setActiveView('optimizer')}
-                    className={`py-4 px-2 border-b-2 font-medium transition-colors whitespace-nowrap ${activeView === 'optimizer' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+                    className={`flex-shrink-0 px-6 py-3 rounded-full font-bold shadow-lg transition-all duration-300 transform hover:-translate-y-1 ${
+                        activeView === 'optimizer' 
+                        ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white scale-105 ring-4 ring-pink-300' 
+                        : 'bg-purple-800/40 text-purple-100 hover:bg-purple-500 hover:text-white hover:shadow-xl'
+                    }`}
                   >
                       Job-Specific Optimizer
                   </button>
+
+                  {/* Job Tracker */}
                   <button 
                     onClick={() => setActiveView('tracker')}
-                    className={`py-4 px-2 border-b-2 font-medium transition-colors whitespace-nowrap ${activeView === 'tracker' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+                    className={`flex-shrink-0 px-6 py-3 rounded-full font-bold shadow-lg transition-all duration-300 transform hover:-translate-y-1 ${
+                        activeView === 'tracker' 
+                        ? 'bg-white text-purple-700 scale-105 ring-4 ring-purple-300' 
+                        : 'bg-purple-800/40 text-purple-100 hover:bg-purple-500 hover:text-white hover:shadow-xl'
+                    }`}
                   >
                       Job Tracker
                   </button>
+
+                   {/* Find Jobs */}
                    <button 
                     onClick={() => setActiveView('jobs')}
-                    className={`py-4 px-2 border-b-2 font-medium transition-colors whitespace-nowrap ${activeView === 'jobs' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+                    className={`flex-shrink-0 px-6 py-3 rounded-full font-bold shadow-lg transition-all duration-300 transform hover:-translate-y-1 ${
+                        activeView === 'jobs' 
+                        ? 'bg-white text-purple-700 scale-105 ring-4 ring-purple-300' 
+                        : 'bg-purple-800/40 text-purple-100 hover:bg-purple-500 hover:text-white hover:shadow-xl'
+                    }`}
                   >
                       Find Jobs
                   </button>
+
+                  {/* Market Trends */}
                   <button 
                     onClick={() => setActiveView('trends')}
-                    className={`py-4 px-2 border-b-2 font-medium transition-colors whitespace-nowrap ${activeView === 'trends' ? 'border-purple-500 text-purple-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+                    className={`flex-shrink-0 px-6 py-3 rounded-full font-bold shadow-lg transition-all duration-300 transform hover:-translate-y-1 ${
+                        activeView === 'trends' 
+                        ? 'bg-white text-purple-700 scale-105 ring-4 ring-purple-300' 
+                        : 'bg-purple-800/40 text-purple-100 hover:bg-purple-500 hover:text-white hover:shadow-xl'
+                    }`}
                   >
                       Market Trends
                   </button>
@@ -543,11 +578,13 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
 
       {/* Free Plan Banner */}
       {isFreePlan && !user.isAdmin && (
-          <div className="bg-gradient-to-r from-purple-900/40 to-indigo-900/40 border-b border-indigo-500/30 text-center py-2 px-4">
+          <div className="bg-gradient-to-r from-purple-900/90 to-indigo-900/90 border-b border-indigo-500/30 text-center py-2 px-4 backdrop-blur-md">
               <p className="text-sm text-indigo-200">
                   <span className="font-bold bg-indigo-600 text-white text-xs px-2 py-0.5 rounded mr-2">FREE</span>
                   <strong>{3 - user.subscription.usageCount}</strong> free scans remaining.
-                  <button onClick={onManageSubscription} className="ml-3 font-bold underline hover:text-white">Upgrade for Unlimited</button>
+                  {canSeePricing && (
+                    <button onClick={onManageSubscription} className="ml-3 font-bold underline hover:text-white">Upgrade for Unlimited</button>
+                  )}
               </p>
           </div>
       )}
@@ -594,7 +631,7 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
                 />
                 <div className="flex flex-col space-y-8" id="results-section" ref={resultsRef}>
                     {isLoading && (
-                    <div className="flex flex-col items-center justify-center bg-slate-800/50 rounded-lg p-8 h-full">
+                    <div className="flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-md rounded-lg p-8 h-full border border-slate-700/50">
                         <Loader />
                         <p className="text-lg text-indigo-400 mt-4 animate-pulse">
                         Analyzing your resume...
@@ -603,7 +640,7 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
                     </div>
                     )}
                     {error && (
-                    <div className="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg" role="alert">
+                    <div className="bg-red-900/90 border border-red-700 text-red-100 px-4 py-3 rounded-lg backdrop-blur-md" role="alert">
                         <strong className="font-bold">Error: </strong>
                         <span className="block sm:inline">{error}</span>
                     </div>
@@ -625,8 +662,8 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
                     />
                     )}
                     {!analysisResult && !isLoading && !error && (
-                    <div className="flex flex-col items-center justify-center bg-slate-800/50 border-2 border-dashed border-slate-700 rounded-lg p-8 h-full text-center min-h-[200px]">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-slate-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="flex flex-col items-center justify-center bg-slate-900/85 backdrop-blur-md border-2 border-dashed border-slate-600 rounded-lg p-8 h-full text-center min-h-[200px]">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-slate-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                         <h3 className="text-xl font-semibold text-slate-300">Job-Specific Optimization</h3>
@@ -766,7 +803,7 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
         type={activeLegalModal || 'terms'} 
       />
 
-      <footer className="text-center p-6 bg-slate-900/50 border-t border-slate-800 text-slate-500 text-xs">
+      <footer className="text-center p-6 bg-slate-900/80 backdrop-blur-md border-t border-slate-800 text-slate-500 text-xs mb-safe">
         <p className="mb-2">Powered by Gemini API</p>
         <div className="flex justify-center space-x-4">
             <button onClick={() => setActiveLegalModal('terms')} className="hover:text-slate-300 transition-colors">Terms of Service</button>

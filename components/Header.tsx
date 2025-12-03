@@ -15,7 +15,7 @@ export const Header: React.FC<HeaderProps> = ({ userName, isAdmin, onLogout, vie
       <div className="container mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center">
         <div className="text-center sm:text-left">
             <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">
-            ATS Resume Optimizer I
+            Resume Rocket
             </h1>
             <p className="mt-1 text-md text-slate-400">
             Elevate your resume to pass any Applicant Tracking System.

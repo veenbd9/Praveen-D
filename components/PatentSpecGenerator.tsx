@@ -1,4 +1,3 @@
-
 import React from 'react';
 import FileSaver from 'file-saver';
 
@@ -122,15 +121,15 @@ export const PatentSpecGenerator: React.FC = () => {
         Packer.toBlob(doc).then((blob: Blob) => {
             // Handle different export structures of file-saver
             if (FileSaver && FileSaver.saveAs) {
-                FileSaver.saveAs(blob, "ATS_Optimizer_Patent_Specification.docx");
+                FileSaver.saveAs(blob, "Resume_Rocket_Patent_Specification.docx");
             } else if (typeof FileSaver === 'function') {
-                (FileSaver as any)(blob, "ATS_Optimizer_Patent_Specification.docx");
+                (FileSaver as any)(blob, "Resume_Rocket_Patent_Specification.docx");
             } else {
                 // Fallback using direct anchor method if module load fails
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = "ATS_Optimizer_Patent_Specification.docx";
+                a.download = "Resume_Rocket_Patent_Specification.docx";
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);

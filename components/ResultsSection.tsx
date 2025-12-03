@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { AnalysisResult } from '../types';
 import { ScoreDisplay } from './ScoreDisplay';
@@ -94,7 +93,7 @@ export const ResultsSection: React.FC<ResultsSectionProps> = ({ result, candidat
             doc.setFontSize(40);
             doc.text("FREE TIER", pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
             doc.setFontSize(10);
-            doc.text("Upgrade for Full Access - ATS Resume Optimizer", pageWidth / 2, pageHeight - 10, { align: 'center' });
+            doc.text("Upgrade for Full Access - Resume Rocket", pageWidth / 2, pageHeight - 10, { align: 'center' });
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(fontSize);
         }

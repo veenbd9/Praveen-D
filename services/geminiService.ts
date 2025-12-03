@@ -221,65 +221,57 @@ const getInitialScore = async (resume: string, jobDescription: string): Promise<
 
 const getOptimizedResume = async (resume: string, jobDescription: string): Promise<{ optimizedResume: string; changes: string[] }> => {
   const prompt = `
-    You are an expert resume writer and ATS optimization specialist for the Indian job market.
-    Rewrite the following resume to achieve a 95-100% match with the provided job description.
+    You are an expert Executive Resume Writer and ATS Strategist.
+    Your task is to rewrite the provided resume to achieve a 95-100% match with the Job Description (JD) while strictly adhering to "Insider HR Rules" for human readability and impact.
+
+    ### STEP 1: REGIONAL ANALYSIS & ADAPTATION
+    Analyze the Job Description to identify the company's location or region (e.g., US, India, Europe, Middle East).
     
-    *** CRITICAL GRAMMAR & SPACING RULES (STRICT) ***
-    1. **Spacing:** Ensure there is a SINGLE SPACE between every word. Do NOT combine words (e.g. write "Project Manager", NEVER "ProjectManager").
-    2. **Punctuation:** Ensure there is always a space after a period, comma, or colon (e.g. "managed. Improved" not "managed.Improved").
-    3. **Grammar:** Use perfect English grammar.
+    **IF EUROPEAN (UK, EU) or MIDDLE EASTERN (UAE, Saudi, etc.) REGION DETECTED:**
+    - **Tone:** Adopt a "Euro-Professional" tone: Precise, process-oriented, and humble. Avoid American-style exaggeration or "fluff".
+    - **Key Values:** Highlight "Process-thinking", "Documentation discipline", "Cross-functional communication", "Stability" (2-3 years per role preferred), and "Data-driven achievements".
+    - **Structure:** Ensure the summary is sharp (3-4 lines max).
+    - **Language:** Use clear, standard English. Avoid over-selling. 
 
-    *** ATS FORMATTING & STRUCTURE RULES (MUST FOLLOW) ***
-    
-    1. **Structure & Order:**
-       - The output MUST follow this exact order:
-         Header -> Professional Summary -> Skills -> Experience -> Education -> Certifications -> Projects -> Additional Information.
-       - Do not deviate from this order.
+    **IF US/INDIA/OTHER:**
+    - **Tone:** High-impact, achievement-oriented, confident.
+    - **Focus:** Heavy emphasis on "Hustle", "Innovation", "Scale", and "Quantifiable Wins".
 
-    2. **Header Format:**
-       - Line 1: [Full Name] | [Target Job Title]
-       - Line 2: [Email] | [Phone Number] | [City, Country]
-       - Do NOT use columns, tables, or complex address lines. Keep it plain text.
+    ### STEP 2: HUMAN LAYER OPTIMIZATION (THE "BEST PRACTICES" RULES)
+    Regardless of region, you must satisfy these Human HR Screening rules:
+    1. **Clear Impact:** Every single experience bullet MUST contain a metric (%, $, time saved) if possible. Evidence of achievements, not just duties.
+    2. **5-Second Clarity:** The Summary must immediately state: Who they are, Strongest Domain, and Top Achievements.
+    3. **Story of Growth:** Show promotions and skill evolution. If the candidate changed jobs frequently (<1 year), add a short 1-line positive explanation (e.g., "Contract", "Project Completed").
+    4. **Leadership:** Include signals of leadership (mentoring, leading meetings, influencing) even for individual contributor roles.
+    5. **JD Alignment:** Identify the top 5 "Must Have" hard skills from the JD and ensure they appear in the top 1/3 of the resume.
+    6. **Industry Familiarity:** Use specific industry terminology (e.g., "Stakeholder management" instead of "Talked to managers").
 
-    3. **Skills Section:**
-       - Provide a dedicated section labeled "SKILLS".
-       - Use a comma-separated list or bullet points.
-       - Group skills logically (e.g., "Programming:", "Cloud:", "Soft Skills:") if applicable.
-       - Many ATS give higher weight to this section, so ensure it is populated with keywords.
+    ### STEP 3: FORMATTING & STRUCTURE (ATS COMPLIANCE)
+    1. **Layout:** Single column, plain text. NO tables, NO graphics.
+    2. **Section Order:**
+       - **HEADER:** Name | Target Job Title (from JD) | Email | Phone | Location | LinkedIn
+       - **PROFESSIONAL SUMMARY:** 3-4 lines, impact-focused.
+       - **SKILLS:** Categorized (e.g., "Core Competencies", "Technical Skills", "Tools").
+       - **EXPERIENCE:** Reverse chronological.
+         - Format: Role | Company | Location | Dates (YYYY-MM).
+         - Content: 3-5 bullets per role. Start with strong Action Verbs.
+       - **EDUCATION:** Degree | University | Year.
+       - **ADDITIONAL:** Certifications, Languages, Projects.
+    3. **Spacing:** STRICT single spacing between words. Ensure space after every punctuation mark.
 
-    4. **Experience Section:**
-       - Section Header: EXPERIENCE
-       - Format for each entry: [Job Title] | [Company Name] | [Location] | [Start Date - End Date]
-       - Dates: Use STRICT 'YYYY-MM' or 'MMM YYYY' format (e.g., 2023-01 or Jan 2023).
-       - Content: Use bullet points only. No paragraphs.
-       - Logic: Reverse chronological order.
-
-    5. **Language & Content Strategy (Optimized for Top ATS USPs):**
-       - **Metrics (SAP SuccessFactors):** Quantify results heavily (e.g., "Improved X by Y%").
-       - **Keywords (Taleo/JazzHR):** Exact match keywords from JD must appear in the top 1/3.
-       - **Simplicity (Recooty/Jobsoid):** No complex formatting that breaks parsers.
-       - **Context (Manatal):** Use semantically related terms, not just keyword stuffing.
-       - **Completeness (Bullhorn/MightyRecruiter):** Ensure header has full contact info.
-       - **Tone (BambooHR):** Professional yet engaging to reflect cultural fit.
-       - **Localization:** Use **Indian English / British English** spelling (e.g., Organised, Centre).
-       - **Action Verbs:** Start every bullet with a strong power verb.
-    
-    6. **Formatting Restrictions:**
-       - NO tables, NO text boxes, NO headers/footers, NO icons/images/logos.
-       - NO multi-column layouts.
-       - Use simple bullet characters (hyphens or standard bullets).
-
-    Job Description:
+    ### INPUT DATA
     ---
+    Job Description:
     ${jobDescription}
     ---
-    
     Original Resume:
-    ---
     ${resume}
     ---
 
-    Return a valid JSON object containing the optimized resume and a list of key changes made.
+    ### OUTPUT
+    Return a valid JSON object with:
+    1. "optimizedResume": The complete rewritten resume text.
+    2. "changes": A list of 3-5 specific strategic changes you made (e.g., "Adapted tone for European market standards", "Added metrics to X role", "Clarified employment gaps").
   `;
 
   return await retryWithBackoff(async () => {

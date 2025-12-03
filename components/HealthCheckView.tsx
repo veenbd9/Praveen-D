@@ -231,9 +231,10 @@ export const HealthCheckView: React.FC<HealthCheckViewProps> = ({
                         </p>
                         <button
                             onClick={onContinueToOptimizer}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-bold py-4 px-10 rounded-full shadow-lg hover:shadow-indigo-500/30 transition-all transform hover:scale-105 flex items-center justify-center mx-auto"
+                            className="bg-gradient-to-r from-rose-500 via-fuchsia-500 to-indigo-500 hover:from-rose-600 hover:via-fuchsia-600 hover:to-indigo-600 text-white text-xl font-extrabold py-5 px-12 rounded-full shadow-2xl shadow-fuchsia-500/40 hover:shadow-fuchsia-500/60 transition-all transform hover:scale-105 hover:-translate-y-1 flex items-center justify-center mx-auto border border-white/20 relative overflow-hidden group"
                         >
-                            <svg className="w-6 h-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                            <div className="absolute inset-0 bg-white/20 group-hover:translate-x-full transition-transform duration-700 ease-in-out -skew-x-12 -translate-x-[150%]"></div>
+                            <svg className="w-8 h-8 mr-3 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                             Proceed to ATS Resume Optimizer
                         </button>
                     </div>

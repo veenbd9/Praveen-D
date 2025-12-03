@@ -25,7 +25,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({ user }) => {
     if (user) {
         chatSessionRef.current = createSupportChatSession(user);
         // Add initial greeting
-        setMessages([{ role: 'model', text: "Hi there! I'm your Resume Optimizer assistant. How can I help you today with your resume, subscriptions, or payments?" }]);
+        setMessages([{ role: 'model', text: "Hi there! I'm your Resume Rocket assistant. How can I help you today with your resume, subscriptions, or payments?" }]);
     }
   }, [user]);
 

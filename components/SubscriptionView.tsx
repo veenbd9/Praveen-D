@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, Transaction, AdminBankDetails } from '../types';
 import { getAdminBankDetails, saveTransaction } from '../services/cryptoService';
@@ -73,13 +72,13 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
 
       setTimeout(() => {
         setLoading(false);
-        alert('Payment Verified & Encrypted! Welcome to ATS Resume Optimizer.');
+        alert('Payment Verified & Encrypted! Welcome to Resume Rocket.');
         onSubscribe(selectedPlan.type);
       }, 1500);
   };
 
   const PlanCard = ({ title, price, duration, features, onSelect, recommended = false, type, isFree = false }: any) => (
-    <div className={`relative flex flex-col p-6 rounded-xl shadow-lg border transition-transform transform hover:scale-105 ${recommended ? 'bg-indigo-900/40 border-indigo-500 z-10' : 'bg-slate-800 border-slate-700'} ${isFree ? 'bg-slate-800/50 border-slate-600' : ''}`}>
+    <div className={`relative flex flex-col p-6 rounded-xl shadow-lg border transition-transform transform hover:scale-105 ${recommended ? 'bg-indigo-900/90 border-indigo-500 z-10' : 'bg-slate-800/90 border-slate-700'} ${isFree ? 'bg-slate-800/80 border-slate-600' : ''} backdrop-blur-sm`}>
         {recommended && (
             <div className="absolute top-0 right-0 bg-indigo-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg">
                 BEST VALUE
@@ -117,8 +116,8 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
 
   if (selectedPlan) {
       return (
-          <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-              <div className="bg-slate-800 p-8 rounded-lg shadow-2xl max-w-md w-full border border-slate-700">
+          <div className="min-h-screen bg-transparent flex items-center justify-center p-4">
+              <div className="bg-slate-900/90 backdrop-blur-md p-8 rounded-lg shadow-2xl max-w-md w-full border border-slate-700">
                   <button onClick={() => setSelectedPlan(null)} className="text-sm text-slate-400 hover:text-white mb-4">&larr; Back to Plans</button>
                   <h2 className="text-2xl font-bold text-white mb-4">Complete Payment</h2>
                   <div className="bg-slate-900 p-4 rounded mb-6">
@@ -174,12 +173,12 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 font-sans flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-transparent font-sans flex flex-col items-center justify-center p-4">
       {onBack && (
           <div className="absolute top-4 left-4">
               <button 
                 onClick={onBack}
-                className="flex items-center text-slate-400 hover:text-white transition-colors"
+                className="flex items-center text-slate-700 hover:text-indigo-600 transition-colors font-semibold"
               >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
@@ -189,11 +188,21 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
           </div>
       )}
 
-      <div className="text-center mb-8 max-w-2xl mt-8">
-        <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 mb-4">
+      {/* Early Bird Banner */}
+      <div className="w-full max-w-4xl bg-gradient-to-r from-yellow-600 to-orange-600 rounded-lg shadow-lg mb-8 p-4 text-center transform hover:scale-[1.01] transition-transform">
+          <p className="text-white font-bold text-lg md:text-xl animate-pulse">
+              🎉 EARLY BIRD OFFER: Special Pricing for the First 1000 Customers!
+          </p>
+          <p className="text-yellow-100 text-sm mt-1">
+              Limited time only. 9,421 spots remaining.
+          </p>
+      </div>
+
+      <div className="text-center mb-8 max-w-2xl">
+        <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-cyan-700 drop-shadow-sm mb-4">
           Unlock Full Access
         </h1>
-        <p className="text-slate-400 text-lg">
+        <p className="text-slate-700 font-medium text-lg">
           Hello, {user.name}. Choose a plan to start optimizing your resume.
         </p>
       </div>
@@ -219,8 +228,8 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
         {isIndia && (
           <>
             <PlanCard
-                title="Monthly"
-                price="₹599"
+                title="Early Bird Monthly"
+                price="₹299"
                 duration="month"
                 type="1-month"
                 features={[
@@ -232,13 +241,13 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
                 onSelect={handleSelectPlan}
             />
             <PlanCard
-                title="Quarterly"
-                price="₹1499"
+                title="Early Bird Quarterly"
+                price="₹599"
                 duration="3 months"
                 type="3-month"
                 recommended={true}
                 features={[
-                    "Save 17% vs Monthly",
+                    "Save 33% vs Monthly",
                     "Unlimited Access",
                     "Advanced ATS Analysis",
                     "Priority Processing"
@@ -246,13 +255,13 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
                 onSelect={handleSelectPlan}
             />
              <PlanCard
-                title="6-Months"
-                price="₹2499"
+                title="Early Bird Half-Yearly"
+                price="₹999"
                 duration="6 months"
                 type="6-month"
                 features={[
                      "Best Long-Term Value",
-                     "Equivalent to ₹416/mo",
+                     "Equivalent to ₹166/mo",
                      "Career Coaching Chatbot",
                      "All Premium Features"
                 ]}
@@ -265,8 +274,8 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
         {!isIndia && (
            <>
             <PlanCard
-                title="Monthly"
-                price="$9"
+                title="Early Bird Monthly"
+                price="$4.99"
                 duration="month"
                 type="1-month"
                 features={[
@@ -278,8 +287,8 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
                 onSelect={handleSelectPlan}
             />
             <PlanCard
-                title="Quarterly"
-                price="$24"
+                title="Early Bird Quarterly"
+                price="$8.99"
                 duration="3 months"
                 type="3-month"
                 recommended={true}
@@ -292,8 +301,8 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
                 onSelect={handleSelectPlan}
             />
             <PlanCard
-                title="6-Months"
-                price="$39"
+                title="Early Bird Half-Yearly"
+                price="$12.99"
                 duration="6 months"
                 type="6-month"
                 features={[
@@ -312,7 +321,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
           {canRenew && (
               <button 
                 onClick={() => handleSelectPlan('renewal', '₹399')}
-                className="text-indigo-400 hover:text-indigo-300 underline text-sm font-bold"
+                className="text-indigo-600 hover:text-indigo-800 underline text-sm font-bold"
               >
                 Already a member? Renew Monthly for ₹399
               </button>
@@ -321,7 +330,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
 
       <button 
         onClick={onLogout}
-        className="mt-12 text-slate-500 hover:text-slate-300 underline text-sm"
+        className="mt-12 text-slate-700 hover:text-indigo-600 underline text-sm font-semibold"
       >
         Log out and switch account
       </button>

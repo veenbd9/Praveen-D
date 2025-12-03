@@ -62,7 +62,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
   const totalLoading = isLoading || isFetchingJd;
 
   return (
-    <div className="bg-slate-800/50 p-6 rounded-lg shadow-lg flex flex-col space-y-6">
+    <div className="bg-slate-900/90 backdrop-blur-md p-6 rounded-lg shadow-2xl border border-slate-700/50 flex flex-col space-y-6">
       <div>
         <div className="flex justify-between items-center mb-2">
           <label htmlFor="resume-text" className="block text-lg font-semibold text-slate-300">
@@ -91,7 +91,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
           <div className="max-h-32 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
             {savedResumes.length > 0 ? (
               savedResumes.map(resume => (
-                <div key={resume.id} className="bg-slate-900 p-2 rounded-md flex justify-between items-center text-sm animate-fade-in-fast">
+                <div key={resume.id} className="bg-slate-800 p-2 rounded-md flex justify-between items-center text-sm animate-fade-in-fast border border-slate-700">
                   <p className="truncate text-slate-300 flex-grow" title={resume.name}>{resume.name}</p>
                   <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
                     <button onClick={() => setResumeText(resume.content)} className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">Select</button>

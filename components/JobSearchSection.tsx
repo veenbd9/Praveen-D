@@ -39,7 +39,8 @@ export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateNam
             window.location.href = mailto;
         } else if (job.applyType === 'redirect' && job.applyUrl) {
             // "Green Light" Method A: Redirect to Apply
-            window.open(job.applyUrl, '_blank', 'noopener,noreferrer');
+            // Use _system target to force opening in external browser on mobile devices
+            window.open(job.applyUrl, '_system', 'noopener,noreferrer');
         }
     };
 

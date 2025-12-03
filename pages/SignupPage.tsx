@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { LegalModal } from '../components/LegalModals';
 
@@ -72,18 +71,18 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 font-sans flex items-center justify-center p-4">
+    <div className="min-h-screen bg-transparent text-slate-200 font-sans flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">
-            ATS Resume Optimizer I
+          <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-cyan-700 drop-shadow-sm">
+            Resume Rocket
           </h1>
-          <p className="mt-2 text-md text-slate-400">
+          <p className="mt-2 text-md text-slate-700 font-medium">
             Create an account to get started.
           </p>
         </div>
 
-        <div className="bg-slate-800/50 p-8 rounded-lg shadow-lg">
+        <div className="bg-slate-900/80 backdrop-blur-lg p-8 rounded-lg shadow-2xl border border-white/20">
           <form onSubmit={handleInitialSubmit} className="space-y-6">
             <div>
               <label htmlFor="name" className="block text-sm font-semibold text-slate-300 mb-2">
@@ -95,7 +94,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="John Doe"
-                className="w-full bg-slate-900 border border-slate-700 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-300 placeholder-slate-500"
+                className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-200 placeholder-slate-500"
                 required
               />
             </div>
@@ -109,7 +108,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full bg-slate-900 border border-slate-700 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-300 placeholder-slate-500"
+                className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-200 placeholder-slate-500"
                 required
               />
             </div>
@@ -123,7 +122,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
                         id="countryCode"
                         value={countryCode}
                         onChange={(e) => setCountryCode(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-300 text-sm"
+                        className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-300 text-sm"
                     >
                         {countryCodes.map((c) => (
                             <option key={c.code} value={c.code}>{c.code}</option>
@@ -140,7 +139,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
                         value={phoneNumber}
                         onChange={(e) => setPhoneNumber(e.target.value)}
                         placeholder="9876543210"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-300 placeholder-slate-500"
+                        className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-200 placeholder-slate-500"
                         required
                     />
                  </div>
@@ -156,7 +155,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-slate-900 border border-slate-700 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-300 placeholder-slate-500"
+                className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-200 placeholder-slate-500"
                 required
               />
             </div>
