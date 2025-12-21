@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface LegalModalProps {
@@ -27,7 +28,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ isOpen, onClose, type })
                     <p><strong>2. AI Processing:</strong> Your resume data is processed by Google Gemini AI. We do not use your data to train public AI models.</p>
                     <p><strong>3. Data Retention:</strong> Your generated resumes are stored locally in your browser and in our secure simulated database. We enforce a strict "No Deletion" policy for legal compliance, but data can be suspended from view.</p>
                     <p><strong>4. Financial Data:</strong> All financial transaction logs are encrypted using AES-256 encryption before storage.</p>
-                    <p><strong>5. Contact:</strong> For privacy concerns, contact support@resumerocket.com.</p>
+                    <p><strong>5. Contact:</strong> For privacy concerns, contact support@scaleupresume.com.</p>
                 </>
             ) : (
                 <>
@@ -42,7 +43,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ isOpen, onClose, type })
                         <p>We expressly disclaim any guarantee of employment, interviews, or the achievement of any specific success metric, including an ATS match score of 85% or higher. The developer is not liable for any damages, losses, or negative employment consequences resulting from your reliance on this application.</p>
                     </div>
 
-                    <p><strong>1. Acceptance of Terms:</strong> By using Resume Rocket, you agree to these terms and the disclaimer above.</p>
+                    <p><strong>1. Acceptance of Terms:</strong> By using ScaleupResume, you agree to these terms and the disclaimer above.</p>
                     <p><strong>2. Acceptable Use:</strong> You agree not to misuse the service, including generating resumes for individuals other than yourself (Identity Theft Protection).</p>
                     <p><strong>3. Subscription & Refunds:</strong> Subscriptions are billed as per the plan selected. Indian users are eligible for special renewal rates after 3 months.</p>
                     <p><strong>4. Termination:</strong> We reserve the right to suspend accounts found in breach of contract (e.g., excessive identity changes).</p>
@@ -51,7 +52,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ isOpen, onClose, type })
             )}
         </div>
         <div className="p-4 border-t border-slate-700 text-right">
-            <button onClick={onClose} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded font-bold">Close</button>
+            <button onClick={onClose} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded font-bold">Close</button>
         </div>
       </div>
     </div>

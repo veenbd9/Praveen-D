@@ -7,8 +7,7 @@ export interface AnalysisResult {
   optimizedScore: number;
   coverLetter: string;
   candidateName: string;
-  inferredRole?: string; // New field for Health Check mode
-  // New Detailed Analysis Fields
+  inferredRole?: string;
   scoreBreakdown?: ScoreBreakdown;
   vendorScores?: VendorScore[];
   knockoutChecks?: KnockoutCheck[];
@@ -23,16 +22,16 @@ export interface StructureAnalysis {
 }
 
 export interface ScoreBreakdown {
-  keywordScore: number; // 40%
-  semanticScore: number; // 30%
-  experienceScore: number; // 15%
-  skillSectionScore: number; // 10%
-  formattingScore: number; // 5%
-  explanation: string; // "Matched 8/10 required keywords..."
+  keywordScore: number;
+  semanticScore: number;
+  experienceScore: number;
+  skillSectionScore: number;
+  formattingScore: number;
+  explanation: string;
 }
 
 export interface VendorScore {
-  vendorName: string; // 'Workday', 'Taleo', 'Greenhouse', 'Lever'
+  vendorName: string;
   score: number;
   rating: 'Low' | 'Medium' | 'High';
   reason: string;
@@ -45,7 +44,7 @@ export interface KnockoutCheck {
 }
 
 export interface SavedResume {
-  id: number; // Using timestamp for simplicity
+  id: number;
   name: string;
   content: string;
   status: 'ACTIVE' | 'SUSPENDED';
@@ -63,28 +62,28 @@ export interface GeneratedResume {
   companyName: string;
   jobTitle: string;
   analysisResult: AnalysisResult;
-  jobDescription?: string; // Added for context when reloading/refining
+  jobDescription?: string;
 }
 
 export interface SubscriptionDetails {
   isActive: boolean;
   planType: 'free' | '1-month' | '3-month' | '6-month' | 'renewal' | 'none';
-  startDate: number; // timestamp
-  expiryDate: number; // timestamp
-  hasCompletedThreeMonthPlan: boolean; // To track eligibility for the 399 offer
-  usageCount: number; // Number of scans used in the current period
-  lastUsageReset: number; // Timestamp of last usage reset
+  startDate: number;
+  expiryDate: number;
+  hasCompletedThreeMonthPlan: boolean;
+  usageCount: number;
+  lastUsageReset: number;
 }
 
 export interface Transaction {
   id: string;
   userId: string;
   userName: string;
-  amount: number; // Total amount paid by user
-  taxAmount?: number; // 18% GST component (deducted from amount)
-  netAmount?: number; // Revenue after tax
+  amount: number;
+  taxAmount?: number;
+  netAmount?: number;
   currency: string;
-  type: 'CREDIT' | 'DEBIT'; // Credit = Money In (Subscription), Debit = Money Out (Salary)
+  type: 'CREDIT' | 'DEBIT';
   description: string;
   timestamp: number;
   method: 'UPI' | 'BANK_TRANSFER' | 'CARD' | 'INTERNAL';
@@ -99,6 +98,15 @@ export interface AdminBankDetails {
   upiId: string;
 }
 
+export interface CompanySettings {
+  personalMobileNumber: string;
+  businessWhatsAppNumber: string;
+  isWhatsAppIntegrated: boolean;
+  whatsAppWelcomeMessage: string;
+  whatsAppEncouragementCycle: boolean;
+  lastUpdatedBy: string;
+}
+
 export interface User {
   name: string;
   email: string;
@@ -107,10 +115,11 @@ export interface User {
   phoneNumber: string;
   subscription: SubscriptionDetails;
   status: 'ACTIVE' | 'SUSPENDED';
-  resumeMismatchCount: number; // Tracks how many times user uploaded a resume with a different name
+  resumeMismatchCount: number;
+  lastWhatsAppMessageSent?: number; // Timestamp of last gradual message
+  whatsAppThreadId?: string; // Simulated thread ID
 }
 
-// "Green Light" Feature: Job Posting Interface
 export interface JobPosting {
   id: string;
   title: string;
@@ -118,20 +127,16 @@ export interface JobPosting {
   location: string;
   description: string;
   postedAt: string;
-  // Green Light Vendors
   source: 'Adzuna' | 'ZipRecruiter' | 'Greenhouse' | 'Lever' | 'Direct';
-  // Green Light Apply Flows
   applyType: 'redirect' | 'email'; 
   applyUrl?: string; 
   applyEmail?: string; 
 }
 
-// --- Market Trends & Technical Analysis ---
-
 export interface MarketDataPoint {
   year: number;
-  salary: number; // Average salary in local currency units (e.g., Lakhs or K)
-  demandScore: number; // 0-100 index
+  salary: number;
+  demandScore: number;
 }
 
 export interface MarketTrendAnalysis {
@@ -151,8 +156,6 @@ export interface RegressionResult {
   predictionTwoYears: number;
   trendDirection: 'Positive' | 'Negative' | 'Stable';
 }
-
-// --- Job Tracker (TealHQ Replication) ---
 
 export type ApplicationStatus = 'BOOKMARKED' | 'APPLYING' | 'APPLIED' | 'INTERVIEWING' | 'NEGOTIATING' | 'OFFER' | 'REJECTED';
 
@@ -175,5 +178,13 @@ export interface JobApplication {
     url?: string;
     contacts?: ApplicationContact[];
     nextAction?: string;
-    nextActionDate?: string; // ISO Date string
+    nextActionDate?: string;
+}
+
+export interface CompanyConflictResult {
+    hasConflict: boolean;
+    conflictingCompanyName?: string;
+    inputCompanyName?: string;
+    confidence?: number;
+    reason?: string;
 }

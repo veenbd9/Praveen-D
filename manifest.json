@@ -1,6 +1,7 @@
+
 {
-  "name": "Resume Rocket",
-  "short_name": "Resume Rocket",
+  "name": "ScaleupResume",
+  "short_name": "ScaleupResume",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

@@ -1,6 +1,7 @@
+
 {
-  "appId": "com.atsoptimizer.app",
-  "appName": "Resume Rocket",
+  "appId": "com.scaleupresume.app",
+  "appName": "ScaleupResume",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"

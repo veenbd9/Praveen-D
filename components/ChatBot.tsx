@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Chat } from "@google/genai";
 import { createSupportChatSession, sendMessageToChat } from '../services/geminiService';
@@ -25,7 +26,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({ user }) => {
     if (user) {
         chatSessionRef.current = createSupportChatSession(user);
         // Add initial greeting
-        setMessages([{ role: 'model', text: "Hi there! I'm your Resume Rocket assistant. How can I help you today with your resume, subscriptions, or payments?" }]);
+        setMessages([{ role: 'model', text: "Hi there! I'm your ScaleupResume assistant. How can I help you today with your resume, subscriptions, or payments?" }]);
     }
   }, [user]);
 
@@ -59,10 +60,10 @@ export const ChatBot: React.FC<ChatBotProps> = ({ user }) => {
       {isOpen && (
         <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-[calc(100vw-2rem)] sm:w-96 h-[450px] sm:h-[500px] mb-4 flex flex-col overflow-hidden animate-fade-in-up origin-bottom-right">
           {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-600 to-cyan-600 p-4 flex justify-between items-center">
+          <div className="bg-gradient-to-r from-emerald-600 to-cyan-600 p-4 flex justify-between items-center">
             <div className="flex items-center space-x-2">
                 <div className="bg-white p-1 rounded-full">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600" viewBox="0 0 20 20" fill="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                     </svg>
                 </div>
@@ -81,7 +82,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({ user }) => {
               <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 <div className={`max-w-[85%] px-4 py-2 rounded-lg text-sm ${
                   msg.role === 'user' 
-                    ? 'bg-indigo-600 text-white rounded-br-none' 
+                    ? 'bg-emerald-600 text-white rounded-br-none' 
                     : 'bg-slate-700 text-slate-200 rounded-bl-none'
                 }`}>
                   <p className="whitespace-pre-wrap">{msg.text}</p>
@@ -91,7 +92,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({ user }) => {
                          <p className="text-xs text-slate-500 mb-1">Sources:</p>
                          <div className="flex flex-wrap gap-1">
                             {msg.sources.map((source, i) => (
-                                <a key={i} href={source.uri} target="_blank" rel="noopener noreferrer" className="text-xs bg-slate-800 border border-slate-600 text-indigo-400 px-2 py-0.5 rounded hover:bg-slate-700 truncate max-w-full block" title={source.title}>
+                                <a key={i} href={source.uri} target="_blank" rel="noopener noreferrer" className="text-xs bg-slate-800 border border-slate-600 text-emerald-400 px-2 py-0.5 rounded hover:bg-slate-700 truncate max-w-full block" title={source.title}>
                                     {source.title || source.uri}
                                 </a>
                             ))}
@@ -120,12 +121,12 @@ export const ChatBot: React.FC<ChatBotProps> = ({ user }) => {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask about payments, access..."
-                className="flex-grow bg-slate-900 border border-slate-600 rounded-full px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="flex-grow bg-slate-900 border border-slate-600 rounded-full px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               <button 
                 type="submit" 
                 disabled={!input.trim() || isLoading}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
@@ -140,7 +141,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({ user }) => {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`p-4 rounded-full shadow-lg transition-all duration-300 ${
-            isOpen ? 'bg-red-500 hover:bg-red-600 rotate-90' : 'bg-indigo-600 hover:bg-indigo-700'
+            isOpen ? 'bg-red-500 hover:bg-red-600 rotate-90' : 'bg-emerald-600 hover:bg-emerald-700'
         }`}
       >
         {isOpen ? (

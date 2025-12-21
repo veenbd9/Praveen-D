@@ -1,19 +1,16 @@
-import CryptoJS from 'crypto-js';
-import { Transaction, AdminBankDetails } from '../types';
 
-// In a real production app, this key should NEVER be hardcoded in the frontend.
-// It should be an environment variable or handled by a backend key management system.
-// For this simulation, we are locking the mock database with this key.
+import CryptoJS from 'crypto-js';
+import { Transaction, AdminBankDetails, CompanySettings } from '../types';
+
 const ENCRYPTION_KEY = "SUPER_SECURE_FINANCIAL_KEY_XYZ_123"; 
 const DB_KEY = 'secure_financial_db';
 const ADMIN_BANK_KEY = 'admin_bank_config';
+const COMPANY_SETTINGS_KEY = 'company_settings_config';
 
-// Helper to encrypt data
 const encryptData = (data: any): string => {
     return CryptoJS.AES.encrypt(JSON.stringify(data), ENCRYPTION_KEY).toString();
 };
 
-// Helper to decrypt data
 const decryptData = (ciphertext: string): any => {
     try {
         const bytes = CryptoJS.AES.decrypt(ciphertext, ENCRYPTION_KEY);
@@ -24,8 +21,6 @@ const decryptData = (ciphertext: string): any => {
         return null;
     }
 };
-
-// --- Transaction Management ---
 
 export const saveTransaction = (transaction: Transaction): void => {
     const currentDb = getAllTransactions();
@@ -45,8 +40,6 @@ export const getUserTransactions = (userId: string): Transaction[] => {
     return all.filter(t => t.userId === userId).sort((a, b) => b.timestamp - a.timestamp);
 };
 
-// --- Admin Bank Config Management ---
-
 export const saveAdminBankDetails = (details: AdminBankDetails): void => {
     const encryptedDetails = encryptData(details);
     localStorage.setItem(ADMIN_BANK_KEY, encryptedDetails);
@@ -56,4 +49,24 @@ export const getAdminBankDetails = (): AdminBankDetails | null => {
     const encryptedDetails = localStorage.getItem(ADMIN_BANK_KEY);
     if (!encryptedDetails) return null;
     return decryptData(encryptedDetails);
+};
+
+export const saveCompanySettings = (settings: CompanySettings): void => {
+    const encrypted = encryptData(settings);
+    localStorage.setItem(COMPANY_SETTINGS_KEY, encrypted);
+};
+
+export const getCompanySettings = (): CompanySettings => {
+    const encrypted = localStorage.getItem(COMPANY_SETTINGS_KEY);
+    if (!encrypted) {
+        return {
+            personalMobileNumber: '9849734395',
+            businessWhatsAppNumber: '', // To be added later
+            isWhatsAppIntegrated: false,
+            whatsAppWelcomeMessage: 'Welcome to ScaleupResume - AI Powered ATS Dominance to secure your future',
+            whatsAppEncouragementCycle: true,
+            lastUpdatedBy: ''
+        };
+    }
+    return decryptData(encrypted);
 };

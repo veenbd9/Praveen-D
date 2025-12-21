@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { LegalModal } from '../components/LegalModals';
 
@@ -74,11 +75,11 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
     <div className="min-h-screen bg-transparent text-slate-200 font-sans flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-cyan-700 drop-shadow-sm">
-            Resume Rocket
+          <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-cyan-700 drop-shadow-sm">
+            ScaleupResume
           </h1>
           <p className="mt-2 text-md text-slate-700 font-medium">
-            Create an account to get started.
+            Create an account to secure your future.
           </p>
         </div>
 
@@ -94,7 +95,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="John Doe"
-                className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-200 placeholder-slate-500"
+                className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors text-slate-200 placeholder-slate-500"
                 required
               />
             </div>
@@ -108,7 +109,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-200 placeholder-slate-500"
+                className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors text-slate-200 placeholder-slate-500"
                 required
               />
             </div>
@@ -122,7 +123,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
                         id="countryCode"
                         value={countryCode}
                         onChange={(e) => setCountryCode(e.target.value)}
-                        className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-300 text-sm"
+                        className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors text-slate-300 text-sm"
                     >
                         {countryCodes.map((c) => (
                             <option key={c.code} value={c.code}>{c.code}</option>
@@ -139,7 +140,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
                         value={phoneNumber}
                         onChange={(e) => setPhoneNumber(e.target.value)}
                         placeholder="9876543210"
-                        className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-200 placeholder-slate-500"
+                        className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors text-slate-200 placeholder-slate-500"
                         required
                     />
                  </div>
@@ -155,7 +156,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-200 placeholder-slate-500"
+                className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors text-slate-200 placeholder-slate-500"
                 required
               />
             </div>
@@ -182,12 +183,12 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
                                 type="checkbox" 
                                 checked={termsAccepted}
                                 onChange={(e) => setTermsAccepted(e.target.checked)}
-                                className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-slate-600 bg-slate-800 transition-all checked:border-indigo-500 checked:bg-indigo-500 flex-shrink-0"
+                                className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-slate-600 bg-slate-800 transition-all checked:border-emerald-500 checked:bg-emerald-500 flex-shrink-0"
                             />
                             <svg className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 transition-opacity peer-checked:opacity-100" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" width="10" height="10"><polyline points="20 6 9 17 4 12"></polyline></svg>
                         </div>
                         <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">
-                            I have read and agree to the <button type="button" onClick={() => setShowLegalModal(true)} className="text-indigo-400 hover:text-indigo-300 underline font-bold">Terms of Service</button> and acknowledge the disclaimer above.
+                            I have read and agree to the <button type="button" onClick={() => setShowLegalModal(true)} className="text-emerald-400 hover:text-emerald-300 underline font-bold">Terms of Service</button> and acknowledge the disclaimer above.
                         </span>
                     </label>
                 </div>
@@ -196,7 +197,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
             <button
               type="submit"
               disabled={!canSubmit}
-              className="w-full bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-700 hover:to-cyan-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-all duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed disabled:saturate-50"
+              className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-all duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed disabled:saturate-50"
             >
               Create Account
             </button>
@@ -204,7 +205,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
 
           <p className="text-center text-slate-400 text-sm mt-6">
             Already have an account?{' '}
-            <button onClick={onSwitchToLogin} className="font-semibold text-indigo-400 hover:text-indigo-300">
+            <button onClick={onSwitchToLogin} className="font-semibold text-emerald-400 hover:text-emerald-300">
               Log In
             </button>
           </p>
@@ -214,7 +215,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
       {/* SMS Verification Modal */}
       {showVerificationModal && (
           <div className="fixed inset-0 bg-black bg-opacity-80 z-[70] flex items-center justify-center p-4">
-              <div className="bg-slate-800 border border-slate-700 p-6 rounded-lg max-w-sm w-full shadow-2xl">
+              <div className="bg-slate-800 border border-slate-700 p-6 rounded-lg max-sm w-full shadow-2xl">
                   <h3 className="text-xl font-bold text-white mb-4">SMS Verification</h3>
                   
                   {duplicateWarning ? (

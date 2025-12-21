@@ -1,51 +1,31 @@
 
 import { GoogleGenAI, Type, Chat } from "@google/genai";
-import { AnalysisResult, BrainstormResult, User, MarketTrendAnalysis } from '../types';
+import { AnalysisResult, BrainstormResult, User, MarketTrendAnalysis, CompanyConflictResult } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// Helper to clean text spacing and grammar artifacts
 const postProcessText = (text: string): string => {
     if (!text) return "";
     let cleaned = text;
-
-    // 1. Ensure space after punctuation (e.g., "word.Next" -> "word. Next")
-    // Avoids breaking URLs or version numbers like 2.5 or node.js by checking for following letter
     cleaned = cleaned.replace(/([!?:;])(?=[a-zA-Z])/g, "$1 ");
-    
-    // Strict period rule: Lowercase letter + period + Uppercase letter = Missing space
     cleaned = cleaned.replace(/([a-z])\.([A-Z])/g, "$1. $2"); 
-
-    // 2. Ensure space around bullet points (e.g., "*Item" -> "* Item")
     cleaned = cleaned.replace(/^([*•-])(?=[a-zA-Z0-9])/gm, "$1 ");
-
-    // 3. Fix common missing space between camelCase-like merges if they look like separate words
-    // E.g. "ManagerAmazon" -> "Manager Amazon"
-    // We avoid touching known tech terms (e.g. JavaScript, iPhone) by looking for sequence length > 3
     cleaned = cleaned.replace(/([a-z]{3,})([A-Z][a-z]{2,})/g, "$1 $2");
-
-    // 4. Ensure space after closing parenthesis if followed by word
     cleaned = cleaned.replace(/(\))(?=[a-zA-Z])/g, "$1 ");
-
     return cleaned;
 };
 
-// Helper for Exponential Backoff Retry Logic
 const retryWithBackoff = async <T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> => {
     try {
         return await fn();
     } catch (error: any) {
         if (retries === 0) throw error;
-        
-        // Check for specific API errors (429 Too Many Requests, 503 Service Unavailable)
         const isRetryable = error.status === 429 || error.status === 503 || error.message?.includes('overloaded') || error.message?.includes('quota');
-        
         if (isRetryable) {
             console.warn(`API Error. Retrying in ${delay}ms... (${retries} attempts left)`);
             await new Promise(resolve => setTimeout(resolve, delay));
             return retryWithBackoff(fn, retries - 1, delay * 2);
         }
-        
         throw error;
     }
 };
@@ -53,117 +33,50 @@ const retryWithBackoff = async <T>(fn: () => Promise<T>, retries = 3, delay = 10
 export const fetchJdFromUrl = async (url: string): Promise<string> => {
     const prompt = `
     You are an expert web scraper and data extractor. Your task is to visit the following URL and extract the full text of the job description.
-    Focus only on the main content of the job description, including responsibilities, qualifications, and other relevant details.
-    Exclude headers, footers, navigation bars, application forms, and any other irrelevant text from the page.
     Return ONLY the raw text of the job description, with no extra commentary, greetings, or formatting.
-
     URL: ${url}
     `;
-
     try {
         return await retryWithBackoff(async () => {
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-pro',
+                model: 'gemini-3-pro-preview',
                 contents: prompt,
             });
-            const text = response.text;
-            if (!text) {
-              throw new Error("The AI model did not return any text content for the URL.");
-            }
-            return text.trim();
+            return response.text?.trim() || "";
         });
     } catch (e) {
-        console.error("Failed to fetch JD from URL via Gemini:", e);
-        throw new Error("The AI model could not retrieve content from the provided URL. Please check the link.");
+        console.error("Failed to fetch JD from URL:", e);
+        throw new Error("Could not retrieve content from URL.");
     }
 };
 
-const getInitialScore = async (resume: string, jobDescription: string): Promise<{ score: number; summary: string; breakdown: any; vendorScores: any; knockoutChecks: any; structureAnalysis: any }> => {
+const getInitialScore = async (resume: string, jobDescription: string): Promise<any> => {
   const prompt = `
     You are an advanced Applicant Tracking System (ATS) Simulation Engine.
-    Your task is to perform a "Layered Matching Analysis" of the resume against the job description.
-
-    ### EXECUTION PIPELINE
-
-    1. **Canonicalization & Keyword Matching (40% Weight):**
-       - Normalize skills (e.g., "React.js" -> "React", "AWS Lambda" -> "AWS").
-       - Compare required hard skills from JD vs Resume.
-       - Calculate exact overlap.
-
-    2. **Semantic Similarity (30% Weight):**
-       - Analyze the "meaning" of experience bullets.
-       - Does "Managed team" in Resume match "Leadership" in JD?
-
-    3. **Seniority & Experience Rules (15% Weight):**
-       - Extract dates from Resume (e.g., Jan 2020 - Jan 2023). Calculate TOTAL years.
-       - Compare against JD requirements (e.g., "3+ years required").
-    
-    4. **Section Structure (10% Weight):**
-       - Does the resume have a dedicated "SKILLS" section?
-    
-    5. **Formatting (5% Weight):**
-       - Is the structure clean? No tables detected?
-
-    ### STRUCTURAL HEALTH CHECK
-    Analyze the resume for structural integrity specifically for ATS parsing.
-    - Check for multi-column layouts (bad for ATS).
-    - Check for complex tables or graphics.
-    - Check for proper section headers.
-    - Check for contact info placement.
-    Provide a rating, list of issues, and specific recommendations to attain a 95%+ structural score.
-
-    ### VENDOR HEURISTICS (Simulation)
-    Calculate a separate sub-score for specific ATS behaviors, incorporating the Unique Selling Propositions (USPs) of top industry platforms:
-
-    - **Workday / Taleo:** (Enterprise Standard) Strict parsing. High weight on 'Keyword Density' and 'Canonical Job Titles'.
-    - **Zoho Recruit:** (Staffing USP) Parsing accuracy. Prioritizes standard section headers and clean formatting.
-    - **BambooHR:** (Culture/Analytics USP) "Human" focus. Checks for 'Soft Skills' and 'Cultural Fit' keywords in the summary.
-    - **Manatal:** (AI Recruitment USP) Semantic matching. Looks for contextual relevance of skills rather than just exact keyword matches.
-    - **Recooty:** (Resume Parsing USP) Simplicity. Penalizes complex layouts, tables, or columns heavily. Rewards standard structure.
-    - **SAP SuccessFactors:** (Data Analytics USP) Data-driven. Heavily weights quantifiable metrics (numbers, $, %) in experience bullets.
-    - **JazzHR:** (Customizable USP) Knockout focus. High sensitivity to "Must Have" skills appearing in the top 1/3 of the resume.
-    - **Bullhorn:** (Integration USP) Data completeness. Checks for full contact details (Phone, Email, LinkedIn, Location) for CRM integration.
-    - **Lever / Greenhouse:** (Modern Flow USP) Narrative focus. Weights the quality and structure of 'Experience' bullets and result-oriented language.
-    - **MightyRecruiter:** (Indian Market) Focuses on clear contact details and skill aggregation.
-    - **Breezy HR:** (Visual Pipeline) Prefers concise summaries and clear role delineation.
-    - **Loxo:** (AI Sourcing) Looks for "hidden gems" (niche skills) and stability in tenure.
-    - **Jobsoid:** (Indian Recruitment) Heavily weighs education credentials and localized terminology.
-
-    ### KNOCKOUT CHECKS
-    Identify explicit "Must Have" requirements in the JD (e.g., "Bachelor's Degree", "US Citizen", "5+ years Python").
-    Check if the resume PASSES or FAILS these specific hard filters.
-
-    ---
-    Job Description:
-    ${jobDescription}
-    ---
-    Resume:
-    ${resume}
-    ---
-
-    Return a valid JSON object.
+    Perform a "Layered Matching Analysis" and return valid JSON.
+    Job Description: ${jobDescription}
+    Resume: ${resume}
   `;
-
   return await retryWithBackoff(async () => {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-pro',
+        model: 'gemini-3-pro-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
-                    score: { type: Type.NUMBER, description: "Total calculated match score (0-100)." },
-                    summary: { type: Type.STRING, description: "One sentence summary." },
+                    score: { type: Type.NUMBER },
+                    summary: { type: Type.STRING },
                     breakdown: {
                         type: Type.OBJECT,
                         properties: {
-                            keywordScore: { type: Type.NUMBER, description: "0-100 based on keyword overlap" },
-                            semanticScore: { type: Type.NUMBER, description: "0-100 based on meaning match" },
-                            experienceScore: { type: Type.NUMBER, description: "0-100 based on years of experience check" },
-                            skillSectionScore: { type: Type.NUMBER, description: "0-100 based on skills section presence" },
-                            formattingScore: { type: Type.NUMBER, description: "0-100 based on clean parsing" },
-                            explanation: { type: Type.STRING, description: "Detailed explanation of the breakdown." }
+                            keywordScore: { type: Type.NUMBER },
+                            semanticScore: { type: Type.NUMBER },
+                            experienceScore: { type: Type.NUMBER },
+                            skillSectionScore: { type: Type.NUMBER },
+                            formattingScore: { type: Type.NUMBER },
+                            explanation: { type: Type.STRING }
                         },
                         required: ['keywordScore', 'semanticScore', 'experienceScore', 'skillSectionScore', 'formattingScore', 'explanation']
                     },
@@ -174,7 +87,7 @@ const getInitialScore = async (resume: string, jobDescription: string): Promise<
                             properties: {
                                 vendorName: { type: Type.STRING },
                                 score: { type: Type.NUMBER },
-                                rating: { type: Type.STRING, enum: ["Low", "Medium", "High"] },
+                                rating: { type: Type.STRING },
                                 reason: { type: Type.STRING }
                             },
                             required: ['vendorName', 'score', 'rating', 'reason']
@@ -186,7 +99,7 @@ const getInitialScore = async (resume: string, jobDescription: string): Promise<
                             type: Type.OBJECT,
                             properties: {
                                 requirement: { type: Type.STRING },
-                                status: { type: Type.STRING, enum: ["PASS", "FAIL", "UNCLEAR"] },
+                                status: { type: Type.STRING },
                                 reason: { type: Type.STRING }
                             },
                             required: ['requirement', 'status', 'reason']
@@ -195,7 +108,7 @@ const getInitialScore = async (resume: string, jobDescription: string): Promise<
                     structureAnalysis: {
                         type: Type.OBJECT,
                         properties: {
-                            rating: { type: Type.STRING, enum: ["Critical", "Needs Improvement", "Good", "Excellent"] },
+                            rating: { type: Type.STRING },
                             issues: { type: Type.ARRAY, items: { type: Type.STRING } },
                             recommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
                             whyStructureMatters: { type: Type.STRING }
@@ -207,149 +120,50 @@ const getInitialScore = async (resume: string, jobDescription: string): Promise<
             }
         }
       });
-
-      try {
-        const text = response.text;
-        if (!text) throw new Error("Empty response");
-        return JSON.parse(text.trim());
-      } catch (e) {
-          console.error("Failed to parse analysis:", e);
-          throw new Error("Analysis failed.");
-      }
+      return JSON.parse(response.text?.trim() || "{}");
   });
 };
 
-const getOptimizedResume = async (resume: string, jobDescription: string): Promise<{ optimizedResume: string; changes: string[] }> => {
+const getOptimizedResume = async (resume: string, jobDescription: string): Promise<any> => {
   const prompt = `
-    You are an expert Executive Resume Writer and ATS Strategist.
-    Your task is to rewrite the provided resume to achieve a 95-100% match with the Job Description (JD) while strictly adhering to "Insider HR Rules" for human readability and impact.
-
-    ### STEP 1: REGIONAL ANALYSIS & ADAPTATION
-    Analyze the Job Description to identify the company's location or region (e.g., US, India, Europe, Middle East).
-    
-    **IF EUROPEAN (UK, EU) or MIDDLE EASTERN (UAE, Saudi, etc.) REGION DETECTED:**
-    - **Tone:** Adopt a "Euro-Professional" tone: Precise, process-oriented, and humble. Avoid American-style exaggeration or "fluff".
-    - **Key Values:** Highlight "Process-thinking", "Documentation discipline", "Cross-functional communication", "Stability" (2-3 years per role preferred), and "Data-driven achievements".
-    - **Structure:** Ensure the summary is sharp (3-4 lines max).
-    - **Language:** Use clear, standard English. Avoid over-selling. 
-
-    **IF US/INDIA/OTHER:**
-    - **Tone:** High-impact, achievement-oriented, confident.
-    - **Focus:** Heavy emphasis on "Hustle", "Innovation", "Scale", and "Quantifiable Wins".
-
-    ### STEP 2: HUMAN LAYER OPTIMIZATION (THE "BEST PRACTICES" RULES)
-    Regardless of region, you must satisfy these Human HR Screening rules:
-    1. **Clear Impact:** Every single experience bullet MUST contain a metric (%, $, time saved) if possible. Evidence of achievements, not just duties.
-    2. **5-Second Clarity:** The Summary must immediately state: Who they are, Strongest Domain, and Top Achievements.
-    3. **Story of Growth:** Show promotions and skill evolution. If the candidate changed jobs frequently (<1 year), add a short 1-line positive explanation (e.g., "Contract", "Project Completed").
-    4. **Leadership:** Include signals of leadership (mentoring, leading meetings, influencing) even for individual contributor roles.
-    5. **JD Alignment:** Identify the top 5 "Must Have" hard skills from the JD and ensure they appear in the top 1/3 of the resume.
-    6. **Industry Familiarity:** Use specific industry terminology (e.g., "Stakeholder management" instead of "Talked to managers").
-
-    ### STEP 3: FORMATTING & STRUCTURE (ATS COMPLIANCE)
-    1. **Layout:** Single column, plain text. NO tables, NO graphics.
-    2. **Section Order:**
-       - **HEADER:** Name | Target Job Title (from JD) | Email | Phone | Location | LinkedIn
-       - **PROFESSIONAL SUMMARY:** 3-4 lines, impact-focused.
-       - **SKILLS:** Categorized (e.g., "Core Competencies", "Technical Skills", "Tools").
-       - **EXPERIENCE:** Reverse chronological.
-         - Format: Role | Company | Location | Dates (YYYY-MM).
-         - Content: 3-5 bullets per role. Start with strong Action Verbs.
-       - **EDUCATION:** Degree | University | Year.
-       - **ADDITIONAL:** Certifications, Languages, Projects.
-    3. **Spacing:** STRICT single spacing between words. Ensure space after every punctuation mark.
-
-    ### INPUT DATA
-    ---
-    Job Description:
-    ${jobDescription}
-    ---
-    Original Resume:
-    ${resume}
-    ---
-
-    ### OUTPUT
-    Return a valid JSON object with:
-    1. "optimizedResume": The complete rewritten resume text.
-    2. "changes": A list of 3-5 specific strategic changes you made (e.g., "Adapted tone for European market standards", "Added metrics to X role", "Clarified employment gaps").
+    You are an expert Executive Resume Writer. Rewrite the resume for a 95-100% match.
+    Job Description: ${jobDescription}
+    Original Resume: ${resume}
   `;
-
   return await retryWithBackoff(async () => {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-pro',
+        model: 'gemini-3-pro-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
-                    optimizedResume: { type: Type.STRING, description: "The full optimized resume text." },
-                    changes: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of specific changes made." }
+                    optimizedResume: { type: Type.STRING },
+                    changes: { type: Type.ARRAY, items: { type: Type.STRING } }
                 },
                 required: ['optimizedResume', 'changes']
             }
         }
       });
-
-      try {
-        const text = response.text;
-        if (!text) throw new Error("Empty response");
-        const json = JSON.parse(text.trim());
-        // Apply post-processing to clean up spacing
-        json.optimizedResume = postProcessText(json.optimizedResume);
-        return json;
-      } catch (e) {
-          console.error("Failed to parse optimized resume:", e);
-          throw new Error("Optimization failed.");
-      }
+      const json = JSON.parse(response.text?.trim() || "{}");
+      json.optimizedResume = postProcessText(json.optimizedResume);
+      return json;
   });
 };
 
 const generateCoverLetter = async (resume: string, jobDescription: string): Promise<string> => {
-    const prompt = `
-    You are a professional career coach. Write a compelling cover letter for the candidate based on the resume and job description below.
-    
-    Rules:
-    1. Tone: Professional, confident, and tailored to the company culture.
-    2. Format: Standard business letter format.
-    3. Content: Highlight the top 3 achievements from the resume that directly solve problems mentioned in the JD.
-    4. Structure: Opening (Hook) -> Body Paragraph 1 (Experience) -> Body Paragraph 2 (Skills/Fit) -> Closing (Call to Action).
-    5. **SPACING & GRAMMAR:** Ensure strict single spacing between words. Put a space after every period and comma.
-
-    Job Description:
-    ${jobDescription}
-
-    Resume:
-    ${resume}
-    `;
-
+    const prompt = `Write a compelling cover letter based on: ${resume} and ${jobDescription}.`;
     return await retryWithBackoff(async () => {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: prompt,
-        });
+        const response = await ai.models.generateContent({ model: 'gemini-3-pro-preview', contents: prompt });
         return postProcessText(response.text || "");
     });
 };
 
 export const regenerateCoverLetter = async (currentLetter: string, jobDescription: string, instructions: string): Promise<string> => {
-    const prompt = `
-    Refine the following cover letter based on these specific instructions: "${instructions}".
-    
-    Context (Job Description):
-    ${jobDescription}
-
-    Original Cover Letter:
-    ${currentLetter}
-
-    Return only the refined cover letter text. Ensure perfect grammar and spacing (space after every punctuation).
-    `;
-
+    const prompt = `Refine this cover letter: "${currentLetter}" based on: "${instructions}". Context: ${jobDescription}.`;
     return await retryWithBackoff(async () => {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: prompt,
-        });
+        const response = await ai.models.generateContent({ model: 'gemini-3-pro-preview', contents: prompt });
         return postProcessText(response.text || "");
     });
 };
@@ -358,12 +172,9 @@ export const analyzeAndOptimizeResume = async (resume: string, jobDescription: s
     const initialAnalysis = await getInitialScore(resume, jobDescription);
     const optimizationResult = await getOptimizedResume(resume, jobDescription);
     const coverLetter = await generateCoverLetter(resume, jobDescription);
-
-    // Calculate simulated improved score
     let newScore = initialAnalysis.score + 15;
     if (newScore > 98) newScore = 98;
-    if (newScore < 85) newScore = 88; // Bias towards passing in optimized version
-
+    if (newScore < 85) newScore = 88;
     return {
         initialScore: initialAnalysis.score,
         initialSummary: initialAnalysis.summary,
@@ -371,7 +182,7 @@ export const analyzeAndOptimizeResume = async (resume: string, jobDescription: s
         changes: optimizationResult.changes,
         optimizedScore: newScore,
         coverLetter: coverLetter,
-        candidateName: "Candidate", // Simplification
+        candidateName: "Candidate",
         scoreBreakdown: initialAnalysis.breakdown,
         vendorScores: initialAnalysis.vendorScores,
         knockoutChecks: initialAnalysis.knockoutChecks,
@@ -381,11 +192,10 @@ export const analyzeAndOptimizeResume = async (resume: string, jobDescription: s
 
 export const analyzeResumeOnly = async (resume: string, jobDescription: string): Promise<AnalysisResult> => {
     const initialAnalysis = await getInitialScore(resume, jobDescription);
-    
     return {
         initialScore: initialAnalysis.score,
         initialSummary: initialAnalysis.summary,
-        optimizedResume: "", // Empty for Scan Only Mode
+        optimizedResume: "",
         changes: [],
         optimizedScore: 0,
         coverLetter: "",
@@ -398,56 +208,24 @@ export const analyzeResumeOnly = async (resume: string, jobDescription: string):
 };
 
 export const analyzeResumeGeneralHealth = async (resume: string): Promise<AnalysisResult> => {
-    const prompt = `
-      You are an expert Resume Auditor and ATS Logic Simulator.
-      Analyze the following resume **without** a specific job description.
-      
-      Your goal is to perform a "Raw Health Check" of the resume to determine if it is ready for general ATS parsing.
-
-      ### 1. INFER TARGET ROLE
-      Based on the skills and experience, what is the most likely target Job Title for this candidate?
-
-      ### 2. SCORING CRITERIA (General Health - 0 to 100)
-      - **Formatting (20%):** Are there columns, tables, graphics, or complex layouts? (Penalty if yes).
-      - **Section Headers (10%):** Are standard headers used (Experience, Skills, Education)?
-      - **Contact Info (10%):** Is email, phone, and location present and easy to find?
-      - **Content Quality (30%):** usage of action verbs, quantifiable metrics (%, $), and clear dates.
-      - **Keyword Density (30%):** Does the resume contain strong industry keywords relevant to the *inferred* role?
-
-      ### 3. VENDOR SIMULATION
-      How would major ATS platforms parse this?
-      - **Taleo/Workday:** Strict parsing.
-      - **Greenhouse/Lever:** Narrative & Impact focus.
-      - **Generic Parser:** formatting cleanliness.
-
-      ### 4. RECOMMENDATIONS
-      Provide specific pointers to reach a 95%+ score. Focus on structure, content, and missing keywords for the inferred role.
-
-      ---
-      Resume Content:
-      ${resume}
-      ---
-
-      Return a valid JSON object.
-    `;
-
+    const prompt = `Analyze general resume health for ATS parsing: ${resume}`;
     return await retryWithBackoff(async () => {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
+            model: 'gemini-3-pro-preview',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
-                        score: { type: Type.NUMBER, description: "General Health Score (0-100)" },
-                        inferredRole: { type: Type.STRING, description: "The detected target job title" },
-                        summary: { type: Type.STRING, description: "Overall assessment summary" },
+                        score: { type: Type.NUMBER },
+                        inferredRole: { type: Type.STRING },
+                        summary: { type: Type.STRING },
                         breakdown: {
                             type: Type.OBJECT,
                             properties: {
                                 keywordScore: { type: Type.NUMBER },
-                                semanticScore: { type: Type.NUMBER, description: "Content quality score here" },
+                                semanticScore: { type: Type.NUMBER },
                                 experienceScore: { type: Type.NUMBER },
                                 skillSectionScore: { type: Type.NUMBER },
                                 formattingScore: { type: Type.NUMBER },
@@ -462,7 +240,7 @@ export const analyzeResumeGeneralHealth = async (resume: string): Promise<Analys
                                 properties: {
                                     vendorName: { type: Type.STRING },
                                     score: { type: Type.NUMBER },
-                                    rating: { type: Type.STRING, enum: ["Low", "Medium", "High"] },
+                                    rating: { type: Type.STRING },
                                     reason: { type: Type.STRING }
                                 },
                                 required: ['vendorName', 'score', 'rating', 'reason']
@@ -471,7 +249,7 @@ export const analyzeResumeGeneralHealth = async (resume: string): Promise<Analys
                         structureAnalysis: {
                             type: Type.OBJECT,
                             properties: {
-                                rating: { type: Type.STRING, enum: ["Critical", "Needs Improvement", "Good", "Excellent"] },
+                                rating: { type: Type.STRING },
                                 issues: { type: Type.ARRAY, items: { type: Type.STRING } },
                                 recommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
                                 whyStructureMatters: { type: Type.STRING }
@@ -483,48 +261,29 @@ export const analyzeResumeGeneralHealth = async (resume: string): Promise<Analys
                 }
             }
         });
-
-        try {
-            const text = response.text;
-            if (!text) throw new Error("Empty response");
-            const json = JSON.parse(text.trim());
-
-            return {
-                initialScore: json.score,
-                initialSummary: json.summary,
-                optimizedResume: "",
-                changes: [],
-                optimizedScore: 0,
-                coverLetter: "",
-                candidateName: "Candidate",
-                inferredRole: json.inferredRole,
-                scoreBreakdown: json.breakdown,
-                vendorScores: json.vendorScores,
-                knockoutChecks: [], // Not applicable for generic health check
-                structureAnalysis: json.structureAnalysis
-            };
-        } catch (e) {
-            console.error("Failed to parse general health analysis:", e);
-            throw new Error("General Health Check failed.");
-        }
+        const json = JSON.parse(response.text?.trim() || "{}");
+        return {
+            initialScore: json.score,
+            initialSummary: json.summary,
+            optimizedResume: "",
+            changes: [],
+            optimizedScore: 0,
+            coverLetter: "",
+            candidateName: "Candidate",
+            inferredRole: json.inferredRole,
+            scoreBreakdown: json.breakdown,
+            vendorScores: json.vendorScores,
+            knockoutChecks: [],
+            structureAnalysis: json.structureAnalysis
+        };
     });
 };
 
 export const brainstormResumeContent = async (jobTitle: string): Promise<BrainstormResult> => {
-    const prompt = `
-    Generate a professional summary and 3 high-impact achievement bullet points for a "${jobTitle}" resume.
-    
-    Rules:
-    1. Summary: 2-3 sentences, engaging, focusing on value proposition.
-    2. Bullets: Use strong action verbs and include placeholders for metrics (e.g., [X]%).
-    3. **SPACING:** Ensure proper spacing between words.
-
-    Return JSON.
-    `;
-
+    const prompt = `Generate summary and bullets for: ${jobTitle}`;
     return await retryWithBackoff(async () => {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
+            model: 'gemini-3-pro-preview',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -538,35 +297,19 @@ export const brainstormResumeContent = async (jobTitle: string): Promise<Brainst
                 }
             }
         });
-        
-        try {
-            const text = response.text;
-            if (!text) throw new Error("Empty");
-            const json = JSON.parse(text);
-            return {
-                professionalSummary: postProcessText(json.professionalSummary),
-                achievementBullets: json.achievementBullets.map((b: string) => postProcessText(b))
-            };
-        } catch (e) {
-            throw new Error("Brainstorming failed.");
-        }
+        const json = JSON.parse(response.text || "{}");
+        return {
+            professionalSummary: postProcessText(json.professionalSummary),
+            achievementBullets: json.achievementBullets.map((b: string) => postProcessText(b))
+        };
     });
 };
 
 export const analyzeMarketTrends = async (role: string, location: string): Promise<MarketTrendAnalysis> => {
-    const prompt = `
-    Act as a Labor Market Economist. Analyze the historical and future trends for the role of "${role}" in "${location}".
-    
-    1. Provide 5 years of HISTORICAL average salary data (e.g., 2020-2024).
-    2. Identify 5 "Emerging Skills" (Buy) that are increasing in demand.
-    3. Identify 5 "Declining Skills" (Sell) that are becoming obsolete.
-    
-    Return JSON.
-    `;
-
+    const prompt = `Analyze market trends for "${role}" in "${location}".`;
     return await retryWithBackoff(async () => {
          const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
+            model: 'gemini-3-pro-preview',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -575,7 +318,7 @@ export const analyzeMarketTrends = async (role: string, location: string): Promi
                     properties: {
                         role: { type: Type.STRING },
                         location: { type: Type.STRING },
-                        currency: { type: Type.STRING, description: "e.g. INR, USD" },
+                        currency: { type: Type.STRING },
                         historicalData: {
                             type: Type.ARRAY,
                             items: {
@@ -595,56 +338,74 @@ export const analyzeMarketTrends = async (role: string, location: string): Promi
                 }
             }
          });
-
-         const text = response.text;
-         if(!text) throw new Error("No data");
-         return JSON.parse(text);
+         return JSON.parse(response.text || "{}");
     });
 };
 
 export const applyStructuralFixes = async (resume: string, recommendations: string[]): Promise<string> => {
-    const prompt = `
-    You are an ATS Formatting Specialist.
-    Rewrite the following resume to strictly adhere to these specific structural recommendations:
-    ${recommendations.map(r => `- ${r}`).join('\n')}
-
-    Rules:
-    1. Do NOT change the core content (jobs, dates, companies) unless asked to fix formatting.
-    2. Use standard headers: PROFESSIONAL SUMMARY, SKILLS, EXPERIENCE, EDUCATION.
-    3. Remove any tables, columns, or complex layouts. Return plain, clean text.
-    4. Ensure single spacing between words and proper punctuation.
-
-    Original Resume:
-    ${resume}
-
-    Return ONLY the rewritten resume text.
-    `;
-
+    const prompt = `Apply these structural fixes to the resume: ${recommendations.join(', ')}. Resume: ${resume}`;
     return await retryWithBackoff(async () => {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: prompt,
-        });
+        const response = await ai.models.generateContent({ model: 'gemini-3-pro-preview', contents: prompt });
         return postProcessText(response.text || "");
     });
 };
 
-// --- CHATBOT UTILITIES ---
+export const detectCompanyConflict = async (inputCompanyName: string, historyCompanies: string[]): Promise<CompanyConflictResult> => {
+    if (historyCompanies.length === 0) return { hasConflict: false };
+    const prompt = `Detect company conflict: "${inputCompanyName}" vs ${JSON.stringify(historyCompanies)}`;
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        hasConflict: { type: Type.BOOLEAN },
+                        conflictingCompanyName: { type: Type.STRING },
+                        reason: { type: Type.STRING }
+                    },
+                    required: ['hasConflict']
+                }
+            }
+        });
+        const json = JSON.parse(response.text || "{}");
+        return {
+            hasConflict: json.hasConflict,
+            conflictingCompanyName: json.conflictingCompanyName,
+            inputCompanyName: inputCompanyName,
+            reason: json.reason
+        };
+    } catch (e) {
+        return { hasConflict: false };
+    }
+};
 
 export const createSupportChatSession = (user: User): Chat => {
     return ai.chats.create({
-        model: 'gemini-2.5-pro',
+        model: 'gemini-3-pro-preview',
         config: {
-            systemInstruction: `You are the Support Assistant for 'ATS Resume Optimizer'. 
-            User Context: Name=${user.name}, Plan=${user.subscription.planType}, IsAdmin=${user.isAdmin}.
-            
-            Capabilities:
-            1. Explain pricing (Free=3 scans, India Plans=599/mo, 1499/qtr).
-            2. Explain ATS scoring logic.
-            3. Help with payments (we accept UPI/Card).
-            
-            Tone: Helpful, professional, and concise.
-            `
+            systemInstruction: `You are the Support Assistant for 'ScaleupResume' (AI Powered ATS Dominance).
+            Your purpose is to assist with features: Resume Building, Billing, and Market Research.
+
+            KEY INFORMATION ABOUT SCALEUPRESUME:
+            - We provide AI-Powered ATS optimization to secure user futures.
+            - We have WhatsApp Business integration for personalized support.
+            - Users receive gradual WhatsApp messages to encourage better job applications.
+            - All optimized resumes are available anytime in the 'Application History'.
+            - We encourage users to upgrade to 'Premium' for highly personalized performance and 95%+ match scores.
+
+            SCOPE:
+            1. Resume Building: Explain the 'Job-Specific Optimizer', structural health checks, and ATS vendor simulation.
+            2. Billing: Explain Monthly, Quarterly, and Half-Yearly plans. Highlight that paid services offer personalized performance.
+            3. Market Research: Explain salary regression and skill arbitrage features.
+            4. WhatsApp: Mention that ScaleupResume sends helpful notifications and support via WhatsApp once integrated by the admin.
+
+            STRICT CONSTRAINTS:
+            - DO NOT discuss source code or technical development details.
+            - DO NOT answer questions about the app's background methods.
+            - Politeness is mandatory. Use the branding 'ScaleupResume'.`
         }
     });
 };

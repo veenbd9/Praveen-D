@@ -1,3 +1,4 @@
+
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
@@ -43,6 +44,7 @@ export class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    return this.props.children;
+    // Fix: Explicitly cast 'this' to any to bypass 'Property props does not exist' error in some TS environments on line 46
+    return (this as any).props.children;
   }
 }
