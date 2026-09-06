@@ -3,7 +3,7 @@ import React, { useState, useCallback } from 'react';
 import { LegalModal } from '../components/LegalModals';
 
 interface SignupPageProps {
-  onSignup: (name: string, email: string, countryCode: string, phoneNumber: string, isVerified: boolean, isPhoneDuplicate: boolean) => void;
+  onSignup: (name: string, email: string, countryCode: string, phoneNumber: string, isVerified: boolean, isPhoneDuplicate: boolean, password?: string) => void;
   onSwitchToLogin: () => void;
 }
 
@@ -63,7 +63,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
           // Mock verification: Code must be 1234
           if (verificationCode === '1234') {
              const isDuplicate = checkPhoneExists(phoneNumber);
-             onSignup(name, email, countryCode, phoneNumber, true, isDuplicate);
+             onSignup(name, email, countryCode, phoneNumber, true, isDuplicate, password);
           } else {
               alert("Invalid Verification Code. Please try again.");
               setIsVerifying(false);

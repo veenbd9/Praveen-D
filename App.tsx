@@ -7,6 +7,7 @@ import { Loader } from './components/Loader';
 import { AnalysisResult, SavedResume, User, GeneratedResume, JobApplication, JobPosting, CompanyConflictResult } from './types';
 import { analyzeAndOptimizeResume, fetchJdFromUrl, analyzeResumeOnly, analyzeResumeGeneralHealth, detectCompanyConflict } from './services/geminiService';
 import { GuideSection } from './components/GuideSection';
+import { ReviewsSection } from './components/ReviewsSection';
 import { ConfirmationModal } from './components/ConfirmationModal';
 import { AdminDbView } from './components/AdminDbView';
 import { AdminFinanceView } from './components/AdminFinanceView';
@@ -255,6 +256,7 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
       <ChatBot user={user} />
       <ConfirmationModal isOpen={isConfirmModalOpen} onClose={() => setIsConfirmModalOpen(false)} onConfirm={handleConfirmAnalyze} title="Confirm Company Name"><p className="text-sm text-slate-400">Optimizing for: <strong className="text-emerald-400 block text-lg my-2 bg-slate-800 p-2 rounded text-center">{companyName}</strong></p></ConfirmationModal>
       <CompanyConflictModal isOpen={conflictModalOpen} onClose={() => setConflictModalOpen(false)} onConfirm={handleConfirmAnalyze} conflictData={conflictData} />
+      <ReviewsSection />
       <footer className="text-center p-6 bg-slate-900/80 border-t border-slate-800 text-slate-500 text-xs mb-safe"><p className="mb-2">Powered by ScaleupResume AI</p></footer>
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { User, Transaction, AdminBankDetails } from '../types';
-import { getAdminBankDetails, saveTransaction } from '../services/cryptoService';
+import { User, AdminBankDetails } from '../types';
+import { getAdminBankDetails } from '../services/cryptoService';
+import { startStripeCheckout, startRazorpayCheckout, sendTransactionalEmail, getSupabaseUserId } from '../services/paymentService';
 
 interface SubscriptionViewProps {
   user: User;
@@ -11,6 +12,7 @@ interface SubscriptionViewProps {
 
 export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubscribe, onLogout, onBack }) => {
   const [loading, setLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   const [adminBank, setAdminBank] = useState<AdminBankDetails | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<{ type: 'free' | '1-month' | '3-month' | '6-month' | 'renewal'; price: number; currency: string } | null>(null);
 
@@ -31,50 +33,42 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
       setSelectedPlan({ type, price, currency });
   };
 
-  const confirmPayment = () => {
-      if (!selectedPlan) return;
+  const confirmPayment = async () => {
+      if (!selectedPlan || selectedPlan.type === 'free') return;
       setLoading(true);
-      
-      // TAX LOGIC: Inclusive GST Calculation (18%)
-      // If Price = 599
-      // Base Price = 599 / 1.18 = 507.63
-      // Tax = 599 - 507.63 = 91.37
-      
-      let taxAmount = 0;
-      let netAmount = selectedPlan.price;
+      setPaymentError(null);
 
-      if (isIndia) {
-          netAmount = selectedPlan.price / 1.18;
-          taxAmount = selectedPlan.price - netAmount;
-          
-          // Round to 2 decimals
-          netAmount = Math.round(netAmount * 100) / 100;
-          taxAmount = Math.round(taxAmount * 100) / 100;
-      }
-
-      // Record Transaction Securely
-      const newTransaction: Transaction = {
-          id: `TXN_${Date.now()}`,
-          userId: user.email,
-          userName: user.name,
-          amount: selectedPlan.price,
-          taxAmount: taxAmount,
-          netAmount: netAmount,
-          currency: selectedPlan.currency,
-          type: 'CREDIT',
-          description: `Subscription Payment: ${selectedPlan.type}`,
-          timestamp: Date.now(),
-          method: isIndia ? 'UPI' : 'CARD',
-          status: 'SUCCESS'
+      const plan = {
+          planType: selectedPlan.type as '1-month' | '3-month' | '6-month' | 'renewal',
+          price: selectedPlan.price,
+          currency: selectedPlan.currency as 'INR' | 'USD',
       };
-      
-      saveTransaction(newTransaction);
 
-      setTimeout(() => {
-        setLoading(false);
-        alert('Payment Verified & Encrypted! Welcome to Resume Rocket.');
-        onSubscribe(selectedPlan.type);
-      }, 1500);
+      try {
+          const userId = await getSupabaseUserId();
+          if (!userId) throw new Error('You must be signed in to subscribe.');
+
+          if (isIndia) {
+              // Razorpay Checkout surfaces UPI apps (PhonePe, Google Pay, etc.), cards,
+              // and netbanking automatically — no separate PhonePe/GPay integration needed.
+              await startRazorpayCheckout(plan, userId, user.email, user.name);
+              await sendTransactionalEmail(
+                  user.email,
+                  user.name,
+                  'Payment Confirmed — ScaleupResume',
+                  `<p>Hi ${user.name},</p><p>Your <strong>${plan.planType}</strong> plan payment of ₹${plan.price} was successful. Welcome to ScaleupResume!</p>`
+              );
+              setLoading(false);
+              onSubscribe(selectedPlan.type as any);
+          } else {
+              // Stripe redirects the browser away; the webhook (api/stripe-webhook.ts)
+              // finalizes the subscription and records the transaction server-side.
+              await startStripeCheckout(plan, user.email, userId);
+          }
+      } catch (err: any) {
+          setLoading(false);
+          setPaymentError(err.message || 'Payment failed. Please try again.');
+      }
   };
 
   const PlanCard = ({ title, price, duration, features, onSelect, recommended = false, type, isFree = false }: any) => (
@@ -128,44 +122,30 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
                       )}
                   </div>
 
-                  {isIndia && adminBank?.upiId ? (
-                      <div className="space-y-4">
-                          <div className="bg-white p-4 rounded-lg flex flex-col items-center">
-                               <div className="w-48 h-48 bg-gray-200 flex items-center justify-center mb-2 text-gray-500 text-xs">
-                                   [Simulated QR Code for {adminBank.upiId}]
-                               </div>
-                               <p className="text-gray-800 font-bold text-sm">{adminBank.upiId}</p>
-                          </div>
-                          <div className="text-center">
-                              <p className="text-slate-300 text-sm mb-2">Or pay via UPI App:</p>
-                              <a href={`upi://pay?pa=${adminBank.upiId}&pn=${adminBank.accountHolderName}&am=${selectedPlan.price}&cu=INR`} className="inline-block bg-green-600 text-white px-4 py-2 rounded font-bold text-sm hover:bg-green-700 transition">
-                                  Open UPI App
-                              </a>
-                          </div>
-                          <div className="border-t border-slate-700 pt-4 mt-4">
-                              <p className="text-xs text-slate-500 mb-2 font-bold">BANK TRANSFER DETAILS:</p>
-                              <p className="text-xs text-slate-400">Bank: {adminBank.bankName}</p>
-                              <p className="text-xs text-slate-400">Acc: {adminBank.accountNumber}</p>
-                              <p className="text-xs text-slate-400">IFSC: {adminBank.ifscCode}</p>
-                          </div>
+                  {isIndia ? (
+                      <div className="bg-slate-700/50 p-4 rounded text-center">
+                          <p className="text-white font-bold">Pay via Razorpay Checkout</p>
+                          <p className="text-slate-400 text-sm mt-2">UPI (PhonePe, Google Pay, Paytm), cards, and netbanking are all available in the next step.</p>
                       </div>
-                  ) : isIndia ? (
-                       <div className="text-center text-yellow-400 p-4 border border-yellow-600 rounded bg-yellow-900/20">
-                           System admin has not configured bank details yet. Please try again later.
-                       </div>
                   ) : (
-                      <div className="bg-slate-700 p-4 rounded">
-                          <p className="text-white text-center font-bold">International Payment Gateway</p>
-                          <p className="text-slate-400 text-sm text-center mt-2">(Simulated Credit Card Processing)</p>
+                      <div className="bg-slate-700/50 p-4 rounded text-center">
+                          <p className="text-white font-bold">Pay via Stripe Checkout</p>
+                          <p className="text-slate-400 text-sm mt-2">You'll be redirected to Stripe's secure payment page.</p>
+                      </div>
+                  )}
+
+                  {paymentError && (
+                      <div className="mt-4 p-3 bg-red-900/30 border border-red-700 rounded text-red-300 text-sm text-center">
+                          {paymentError}
                       </div>
                   )}
 
                   <button 
                     onClick={confirmPayment} 
-                    disabled={loading || (isIndia && !adminBank?.upiId)}
+                    disabled={loading}
                     className="w-full mt-6 bg-gradient-to-r from-indigo-600 to-cyan-600 text-white font-bold py-3 rounded shadow-lg hover:from-indigo-700 hover:to-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                      {loading ? 'Verifying Transaction...' : 'I Have Made Payment'}
+                      {loading ? 'Redirecting to payment...' : isIndia ? 'Pay with Razorpay' : 'Pay with Stripe'}
                   </button>
               </div>
           </div>
