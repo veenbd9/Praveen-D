@@ -34,7 +34,10 @@ export const HealthCheckView: React.FC<HealthCheckViewProps> = ({
 }) => {
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     
-    const isPrivileged = isAdmin || userEmail?.toLowerCase().startsWith('test') || userEmail === 'veenbd9@gmail.com';
+    // Privileged access is granted solely by the `is_admin` flag on the user's
+    // Supabase profile (set via the Supabase dashboard/SQL, never by email pattern),
+    // so signing up with an email like "test@..." cannot unlock this on its own.
+    const isPrivileged = isAdmin;
 
     const handleFileRead = (content: string, name: string) => {
         setResumeText(content);

@@ -65,7 +65,7 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
       const storedResumes = localStorage.getItem('savedResumes');
       let loadedResumes: SavedResume[] = [];
       if (storedResumes) loadedResumes = JSON.parse(storedResumes);
-      if (user.email === 'veenbd9@gmail.com' || user.email.startsWith('Test')) {
+      if (user.isAdmin) {
          const defaultResumeId = 999999999;
          if (!loadedResumes.some(r => r.id === defaultResumeId)) {
              const defaultResume: SavedResume = { id: defaultResumeId, name: "Default Profile", content: DEFAULT_RESUME_CONTENT, status: 'ACTIVE' };
@@ -200,7 +200,7 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
           localStorage.setItem('generated_resumes_history', JSON.stringify(updated));
           return updated;
       });
-      if (user.isAdmin || user.email.startsWith('Test')) { handleSaveResume({ id: Date.now(), name: `Optimized - ${currentCompanyName}`, content: result.optimizedResume, status: 'ACTIVE' }); }
+      if (user.isAdmin) { handleSaveResume({ id: Date.now(), name: `Optimized - ${currentCompanyName}`, content: result.optimizedResume, status: 'ACTIVE' }); }
     } catch (err: any) { setError(err.message); } finally { setIsLoading(false); }
   }, [resumeText, jobDescriptionText, user, onUpdateUser, companyName, jobTitle, handleSaveResume]);
 
@@ -249,7 +249,7 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
                 <InputSection resumeText={resumeText} setResumeText={setResumeText} jobDescriptionText={jobDescriptionText} setJobDescriptionText={setJobDescriptionText} metricContext={metricContext} setMetricContext={setMetricContext} companyName={companyName} setCompanyName={setCompanyName} jobTitle={jobTitle} setJobTitle={setJobTitle} onAnalyze={handleAnalyze} onScan={handleScanOnly} onHealthCheck={handleHealthCheck} onFetchJd={handleFetchJd} isLoading={isLoading} isFetchingJd={isFetchingJd} savedResumes={savedResumes.filter(r => r.status === 'ACTIVE')} onSaveResume={handleSaveResume} onDeleteResume={handleSuspendResume} />
                 <div className="flex flex-col space-y-8" ref={resultsRef}>{isLoading && <div className="flex flex-col items-center justify-center p-8 h-full"><Loader /><p className="text-lg text-emerald-400 mt-4">Securing your future...</p></div>}
                 {error && <div className="bg-red-900/90 border border-red-700 text-red-100 px-4 py-3 rounded-lg"><strong>Error: </strong>{error}</div>}
-                {analysisResult && !isLoading && <ResultsSection result={analysisResult} candidateName={analysisResult.candidateName} companyName={analyzedCompanyName || companyName} planType={user.subscription.planType} jobDescription={jobDescriptionText} showDeepDive={user.isAdmin || user.email.startsWith('Test')} onSaveToProfile={(content, name) => handleSaveResume({ id: Date.now(), name, content, status: 'ACTIVE' })} />}
+                {analysisResult && !isLoading && <ResultsSection result={analysisResult} candidateName={analysisResult.candidateName} companyName={analyzedCompanyName || companyName} planType={user.subscription.planType} jobDescription={jobDescriptionText} showDeepDive={user.isAdmin} onSaveToProfile={(content, name) => handleSaveResume({ id: Date.now(), name, content, status: 'ACTIVE' })} />}
                 {!analysisResult && !isLoading && <div className="flex flex-col items-center justify-center bg-slate-900/85 border-2 border-dashed border-slate-600 rounded-lg p-8 h-full text-center"><h3>Optimize for stronger ATS compatibility</h3><p className="text-slate-400 mt-2">Enter the Job Description to tailor your resume. ATS compatibility varies by employer and software provider.</p></div>}</div>
             </div>
             {!user.isAdmin && <FinancialDashboard user={user} />}
