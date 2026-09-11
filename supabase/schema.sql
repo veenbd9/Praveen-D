@@ -27,9 +27,11 @@ create table if not exists public.profiles (
 alter table public.profiles enable row level security;
 
 -- Users can read/update only their own profile; admins can read all via service role.
+drop policy if exists "Profiles are viewable by owner" on public.profiles;
 create policy "Profiles are viewable by owner" on public.profiles
   for select using (auth.uid() = id);
 
+drop policy if exists "Profiles are updatable by owner" on public.profiles;
 create policy "Profiles are updatable by owner" on public.profiles
   for update using (auth.uid() = id);
 
@@ -77,6 +79,7 @@ create table if not exists public.transactions (
 
 alter table public.transactions enable row level security;
 
+drop policy if exists "Users can view their own transactions" on public.transactions;
 create policy "Users can view their own transactions" on public.transactions
   for select using (auth.uid() = user_id);
 
@@ -96,5 +99,6 @@ create table if not exists public.reviews (
 
 alter table public.reviews enable row level security;
 
+drop policy if exists "Reviews are publicly readable" on public.reviews;
 create policy "Reviews are publicly readable" on public.reviews
   for select using (true);
