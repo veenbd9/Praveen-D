@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { brainstormResumeContent } from '../services/geminiService';
+import { brainstormResumeContent } from '../services/geminiClient';
 import { BrainstormResult } from '../types';
 
 export const GuideSection: React.FC = () => {
@@ -74,8 +74,8 @@ export const GuideSection: React.FC = () => {
                 </table>
             </div>
 
-            <h3 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">✅ Part 2: Highlights for 95%+ ATS Recognition</h3>
-            <p>The Applicant Tracking System (ATS) is a software that scans, parses, and ranks your resume based on how well it matches the job description. To score high (95%+), you need flawless formatting and precise keyword optimization.</p>
+            <h3 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">✅ Part 2: Improve ATS Compatibility</h3>
+            <p>Applicant Tracking Systems (ATS) scan, parse, and rank resumes based on their match with a job description. Clean formatting and precise keyword optimization can improve compatibility, but scores vary by employer and ATS provider.</p>
 
             <h4 className="text-lg font-semibold text-slate-200">1. Keyword Optimization (The Content Match)</h4>
             <p>This is the single most important factor for a high ATS score. This app helps you tailor your resume for <strong>every single application.</strong> Integrate keywords from the job description naturally into your <strong>Professional Summary</strong>, <strong>Skills Section</strong>, and, most importantly, the <strong>Work Experience</strong> bullet points.</p>

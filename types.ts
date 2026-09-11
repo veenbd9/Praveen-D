@@ -12,6 +12,7 @@ export interface AnalysisResult {
   vendorScores?: VendorScore[];
   knockoutChecks?: KnockoutCheck[];
   structureAnalysis?: StructureAnalysis;
+  bulletVariations?: string[];
 }
 
 export interface StructureAnalysis {
@@ -72,6 +73,7 @@ export interface SubscriptionDetails {
   expiryDate: number;
   hasCompletedThreeMonthPlan: boolean;
   usageCount: number;
+  resumeLimit: number;
   lastUsageReset: number;
 }
 

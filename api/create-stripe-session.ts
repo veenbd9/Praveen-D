@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
+import { getPlanPrice, type PaidPlanType } from '../lib/paymentPlans';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2025-02-24.acacia',
@@ -16,10 +17,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { planType, price, currency, userEmail, userId } = req.body ?? {};
+  const { planType, currency, userEmail, userId } = req.body ?? {};
 
-  if (!planType || !price || !currency || !userEmail || !userId) {
+  if (!planType || !currency || !userEmail || !userId) {
     res.status(400).json({ error: 'Missing required fields.' });
+    return;
+  }
+
+  const price = getPlanPrice(planType, currency);
+  if (price === null || currency !== 'USD') {
+    res.status(400).json({ error: 'Invalid Stripe plan.' });
     return;
   }
 
@@ -38,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           quantity: 1,
         },
       ],
-      metadata: { userId, planType },
+      metadata: { userId, planType: planType as PaidPlanType, currency },
       success_url: `${process.env.PUBLIC_SITE_URL}/?payment=success&provider=stripe`,
       cancel_url: `${process.env.PUBLIC_SITE_URL}/?payment=cancelled`,
     });

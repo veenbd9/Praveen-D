@@ -5,7 +5,8 @@ import { InputSection } from './components/InputSection';
 import { ResultsSection } from './components/ResultsSection';
 import { Loader } from './components/Loader';
 import { AnalysisResult, SavedResume, User, GeneratedResume, JobApplication, JobPosting, CompanyConflictResult } from './types';
-import { analyzeAndOptimizeResume, fetchJdFromUrl, analyzeResumeOnly, analyzeResumeGeneralHealth, detectCompanyConflict } from './services/geminiService';
+import { analyzeAndOptimizeResume, fetchJdFromUrl, analyzeResumeOnly, analyzeResumeGeneralHealth, detectCompanyConflict } from './services/geminiClient';
+import { getPlanQuota } from './lib/paymentPlans';
 import { GuideSection } from './components/GuideSection';
 import { ReviewsSection } from './components/ReviewsSection';
 import { ConfirmationModal } from './components/ConfirmationModal';
@@ -21,6 +22,7 @@ import { JobTrackerBoard } from './components/JobTrackerBoard';
 import { HealthCheckView } from './components/HealthCheckView';
 import { CompanyConflictModal } from './components/CompanyConflictModal';
 import { getCompanySettings } from './services/cryptoService';
+import { updatePassword } from './services/authService';
 
 interface AppProps {
   user: User;
@@ -37,6 +39,7 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
   const [activeView, setActiveView] = useState<'health-check' | 'optimizer' | 'tracker' | 'jobs' | 'trends'>('health-check');
   const [resumeText, setResumeText] = useState<string>('');
   const [jobDescriptionText, setJobDescriptionText] = useState<string>('');
+  const [metricContext, setMetricContext] = useState<string>('');
   const [companyName, setCompanyName] = useState<string>('');
   const [analyzedCompanyName, setAnalyzedCompanyName] = useState<string>('');
   const [jobTitle, setJobTitle] = useState<string>('');
@@ -113,7 +116,7 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
 
   const handleToggleResumeStatus = useCallback((resumeId: number) => {
       setSavedResumes(prevResumes => {
-          const updatedResumes: SavedResume[] = prevResumes.map(r => r.id === resumeId ? { ...r, status: (r.status === 'ACTIVE' ? 'SUSPEND' : 'ACTIVE') as 'ACTIVE' | 'SUSPENDED' } : r);
+          const updatedResumes: SavedResume[] = prevResumes.map(r => r.id === resumeId ? { ...r, status: r.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE' } : r);
           localStorage.setItem('savedResumes', JSON.stringify(updatedResumes));
           return updatedResumes;
       });
@@ -152,7 +155,11 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
   
   const handleAnalyze = useCallback(async () => {
     if (!resumeText || !jobDescriptionText || !companyName) return setError('Missing info.');
-    if (user.subscription.planType === 'free' && user.subscription.usageCount >= 3 && !user.isAdmin) return setLimitModalOpen(true);
+    const resumeLimit = user.subscription.planType === 'free' ? 1 : user.subscription.resumeLimit ?? getPlanQuota(user.subscription.planType) ?? 1;
+    if (!user.isAdmin && user.subscription.usageCount >= resumeLimit) {
+      setLimitModalOpen(true);
+      return;
+    }
     setIsLoading(true);
     try {
         const historyCompanies: string[] = Array.from(new Set(applicationHistory.map(h => h.companyName)));
@@ -160,7 +167,7 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
         setIsLoading(false);
         if (conflict.hasConflict) { setConflictData(conflict); setConflictModalOpen(true); } else { setIsConfirmModalOpen(true); }
     } catch (e) { setIsLoading(false); setIsConfirmModalOpen(true); }
-  }, [resumeText, jobDescriptionText, companyName, user.subscription, user.isAdmin, applicationHistory]);
+  }, [resumeText, jobDescriptionText, metricContext, companyName, user.subscription, user.isAdmin, applicationHistory]);
 
   const checkNameMatch = (accountName: string, resumeName: string): boolean => {
       if (resumeName === "Candidate") return true;
@@ -175,11 +182,11 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
     const currentCompanyName = companyName; const currentJobDescription = jobDescriptionText;
     try {
       let currentUserState = { ...user };
-      if (!user.isAdmin && user.subscription.planType === 'free') {
+      const result = await analyzeAndOptimizeResume(resumeText, jobDescriptionText, metricContext);
+      if (!user.isAdmin) {
           currentUserState = { ...currentUserState, subscription: { ...currentUserState.subscription, usageCount: currentUserState.subscription.usageCount + 1 } };
           onUpdateUser(currentUserState);
       }
-      const result = await analyzeAndOptimizeResume(resumeText, jobDescriptionText);
       if (!checkNameMatch(currentUserState.name, result.candidateName)) {
           const newCount = (currentUserState.resumeMismatchCount || 0) + 1;
           currentUserState = { ...currentUserState, resumeMismatchCount: newCount };
@@ -205,6 +212,7 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
 
   const handleHealthCheck = useCallback(async () => {
       if (!resumeText) return setError('Resume required.');
+      setError(null);
       setIsLoading(true); setCompanyName(''); setJobDescriptionText(''); setAnalyzedCompanyName('Health Check');
       try { setAnalysisResult(await analyzeResumeGeneralHealth(resumeText)); } catch (err: any) { setError(err.message); } finally { setIsLoading(false); }
   }, [resumeText]);
@@ -217,12 +225,12 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
   }, []);
 
   const isFreePlan = user.subscription.planType === 'free';
-  const canSeePricing = !isFreePlan || user.subscription.usageCount >= 3 || user.isAdmin;
+  const canSeePricing = !isFreePlan || user.subscription.usageCount >= 1 || user.isAdmin;
 
   return (
     <div className="min-h-screen bg-transparent text-slate-200 font-sans flex flex-col pt-safe pb-safe pl-safe pr-safe">
       <div className="sticky top-0 z-20">
-         <Header userName={user.name} isAdmin={user.isAdmin} onLogout={onLogout} viewMode={adminViewMode} onToggleViewMode={() => setAdminViewMode(prev => prev === 'admin' ? 'user' : 'admin')} onManageSubscription={canSeePricing ? onManageSubscription : undefined} />
+         <Header userName={user.name} isAdmin={user.isAdmin} onLogout={onLogout} viewMode={adminViewMode} onToggleViewMode={() => setAdminViewMode(prev => prev === 'admin' ? 'user' : 'admin')} onManageSubscription={canSeePricing ? onManageSubscription : undefined} onChangePassword={updatePassword} />
       </div>
       <div className="bg-gradient-to-r from-emerald-700 via-teal-600 to-cyan-600 shadow-xl border-b border-emerald-400/30 sticky top-[72px] z-10">
           <div className="container mx-auto px-4 py-3 flex space-x-4 overflow-x-auto pb-2 scrollbar-hide">
@@ -233,16 +241,16 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
               <button onClick={() => setActiveView('trends')} className={`flex-shrink-0 px-6 py-3 rounded-full font-bold shadow-lg transition-all duration-300 ${activeView === 'trends' ? 'bg-white text-emerald-700 scale-105 ring-4 ring-emerald-300' : 'bg-emerald-800/40 text-emerald-100 hover:bg-emerald-500 hover:text-white'}`}>Trends</button>
           </div>
       </div>
-      {isFreePlan && !user.isAdmin && <div className="bg-gradient-to-r from-emerald-900/90 to-teal-900/90 border-b border-teal-500/30 text-center py-2 px-4 backdrop-blur-md"><p className="text-sm text-teal-200"><strong>{3 - user.subscription.usageCount}</strong> free scans remaining. {canSeePricing && <button onClick={onManageSubscription} className="ml-3 font-bold underline">Upgrade for Unlimited</button>}</p></div>}
+      {isFreePlan && !user.isAdmin && <div className="bg-gradient-to-r from-emerald-900/90 to-teal-900/90 border-b border-teal-500/30 text-center py-2 px-4 backdrop-blur-md"><p className="text-sm text-teal-200"><strong>{Math.max(0, 1 - user.subscription.usageCount)}</strong> free resume build remaining. {canSeePricing && <button onClick={onManageSubscription} className="ml-3 font-bold underline">Upgrade for more resume builds</button>}</p></div>}
       <main className="container mx-auto p-4 md:p-8 flex-grow">
-        {activeView === 'health-check' && <HealthCheckView resumeText={resumeText} setResumeText={setResumeText} onAnalyze={handleHealthCheck} isLoading={isLoading} result={analysisResult} onContinueToOptimizer={() => setActiveView('optimizer')} onReset={() => { setResumeText(''); setAnalysisResult(null); }} userEmail={user.email} isAdmin={user.isAdmin} />}
+        {activeView === 'health-check' && <HealthCheckView resumeText={resumeText} setResumeText={setResumeText} onAnalyze={handleHealthCheck} isLoading={isLoading} error={error} result={analysisResult} onContinueToOptimizer={() => setActiveView('optimizer')} onReset={() => { setResumeText(''); setAnalysisResult(null); setError(null); }} userEmail={user.email} isAdmin={user.isAdmin} />}
         {activeView === 'optimizer' && <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <InputSection resumeText={resumeText} setResumeText={setResumeText} jobDescriptionText={jobDescriptionText} setJobDescriptionText={setJobDescriptionText} companyName={companyName} setCompanyName={setCompanyName} jobTitle={jobTitle} setJobTitle={setJobTitle} onAnalyze={handleAnalyze} onScan={handleScanOnly} onHealthCheck={handleHealthCheck} onFetchJd={handleFetchJd} isLoading={isLoading} isFetchingJd={isFetchingJd} savedResumes={savedResumes.filter(r => r.status === 'ACTIVE')} onSaveResume={handleSaveResume} onDeleteResume={handleSuspendResume} />
+                <InputSection resumeText={resumeText} setResumeText={setResumeText} jobDescriptionText={jobDescriptionText} setJobDescriptionText={setJobDescriptionText} metricContext={metricContext} setMetricContext={setMetricContext} companyName={companyName} setCompanyName={setCompanyName} jobTitle={jobTitle} setJobTitle={setJobTitle} onAnalyze={handleAnalyze} onScan={handleScanOnly} onHealthCheck={handleHealthCheck} onFetchJd={handleFetchJd} isLoading={isLoading} isFetchingJd={isFetchingJd} savedResumes={savedResumes.filter(r => r.status === 'ACTIVE')} onSaveResume={handleSaveResume} onDeleteResume={handleSuspendResume} />
                 <div className="flex flex-col space-y-8" ref={resultsRef}>{isLoading && <div className="flex flex-col items-center justify-center p-8 h-full"><Loader /><p className="text-lg text-emerald-400 mt-4">Securing your future...</p></div>}
                 {error && <div className="bg-red-900/90 border border-red-700 text-red-100 px-4 py-3 rounded-lg"><strong>Error: </strong>{error}</div>}
                 {analysisResult && !isLoading && <ResultsSection result={analysisResult} candidateName={analysisResult.candidateName} companyName={analyzedCompanyName || companyName} planType={user.subscription.planType} jobDescription={jobDescriptionText} showDeepDive={user.isAdmin || user.email.startsWith('Test')} onSaveToProfile={(content, name) => handleSaveResume({ id: Date.now(), name, content, status: 'ACTIVE' })} />}
-                {!analysisResult && !isLoading && <div className="flex flex-col items-center justify-center bg-slate-900/85 border-2 border-dashed border-slate-600 rounded-lg p-8 h-full text-center"><h3>Optimize for 95%+ Success</h3><p className="text-slate-400 mt-2">Enter the Job Description to secure your future.</p></div>}</div>
+                {!analysisResult && !isLoading && <div className="flex flex-col items-center justify-center bg-slate-900/85 border-2 border-dashed border-slate-600 rounded-lg p-8 h-full text-center"><h3>Optimize for stronger ATS compatibility</h3><p className="text-slate-400 mt-2">Enter the Job Description to tailor your resume. ATS compatibility varies by employer and software provider.</p></div>}</div>
             </div>
             {!user.isAdmin && <FinancialDashboard user={user} />}
             {user.isAdmin && adminViewMode === 'admin' && <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8"><AdminDbView savedResumes={savedResumes} onToggleStatus={handleToggleResumeStatus} /><AdminFinanceView /></div>}
@@ -256,8 +264,27 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
       <ChatBot user={user} />
       <ConfirmationModal isOpen={isConfirmModalOpen} onClose={() => setIsConfirmModalOpen(false)} onConfirm={handleConfirmAnalyze} title="Confirm Company Name"><p className="text-sm text-slate-400">Optimizing for: <strong className="text-emerald-400 block text-lg my-2 bg-slate-800 p-2 rounded text-center">{companyName}</strong></p></ConfirmationModal>
       <CompanyConflictModal isOpen={conflictModalOpen} onClose={() => setConflictModalOpen(false)} onConfirm={handleConfirmAnalyze} conflictData={conflictData} />
+      {limitModalOpen && (
+        <div className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4">
+          <div className="bg-slate-800 border border-indigo-500/50 rounded-xl shadow-2xl max-w-lg w-full p-6">
+            <h2 className="text-xl font-bold text-white mb-3">Your free resume build is complete</h2>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              Your first resume generation is completely free. Continued access to our premium resume building services—including the ability to generate multiple resumes tailored to specific Job Descriptions—requires an active paid subscription. By upgrading to a premium plan, you agree to our recurring billing terms as outlined in our Pricing Policy.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setLimitModalOpen(false)} className="px-4 py-2 rounded bg-slate-700 text-slate-200">Close</button>
+              <button onClick={() => { setLimitModalOpen(false); onManageSubscription(); }} className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-bold">View paid plans</button>
+            </div>
+          </div>
+        </div>
+      )}
       <ReviewsSection />
-      <footer className="text-center p-6 bg-slate-900/80 border-t border-slate-800 text-slate-500 text-xs mb-safe"><p className="mb-2">Powered by ScaleupResume AI</p></footer>
+      <footer className="text-center p-6 bg-slate-900/80 border-t border-slate-800 text-slate-500 text-xs mb-safe">
+        <p className="mb-2">Powered by ScaleupResume AI</p>
+        <p>ATS compatibility varies by employer and software provider. We do not guarantee employment or interviews.</p>
+        <button onClick={() => setActiveLegalModal('terms')} className="mt-2 text-indigo-300 hover:text-indigo-200 underline">Terms of Service</button>
+      </footer>
+      <LegalModal isOpen={activeLegalModal !== null} onClose={() => setActiveLegalModal(null)} type={activeLegalModal || 'terms'} />
     </div>
   );
 };

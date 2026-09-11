@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { AnalysisResult } from '../types';
 import { FileInput } from './FileInput';
 import { ScoreDisplay } from './ScoreDisplay';
-import { applyStructuralFixes } from '../services/geminiService';
+import { applyStructuralFixes } from '../services/geminiClient';
 
 declare const jspdf: any;
 
@@ -12,6 +12,7 @@ interface HealthCheckViewProps {
   setResumeText: (text: string) => void;
   onAnalyze: () => void;
   isLoading: boolean;
+  error?: string | null;
   result: AnalysisResult | null;
   onContinueToOptimizer: () => void;
   onReset: () => void;
@@ -24,6 +25,7 @@ export const HealthCheckView: React.FC<HealthCheckViewProps> = ({
     setResumeText, 
     onAnalyze, 
     isLoading, 
+    error,
     result,
     onContinueToOptimizer,
     onReset,
@@ -122,6 +124,11 @@ export const HealthCheckView: React.FC<HealthCheckViewProps> = ({
                                 ) : 'Check My Score'}
                             </button>
                         </div>
+                    </div>
+                )}
+                {error && (
+                    <div className="mt-4 rounded-lg border border-red-500/50 bg-red-900/30 p-4 text-sm text-red-200">
+                        <strong>Score check failed:</strong> {error}
                     </div>
                 )}
             </div>
@@ -227,7 +234,7 @@ export const HealthCheckView: React.FC<HealthCheckViewProps> = ({
                     <div className="mt-12 text-center bg-gradient-to-r from-indigo-900/50 to-teal-900/50 p-8 rounded-2xl border border-indigo-500/30">
                         <h2 className="text-2xl font-bold text-white mb-2">Ready to Apply?</h2>
                         <p className="text-slate-300 mb-6 max-w-xl mx-auto">
-                            A healthy resume is just the start. To get a <strong>95%+ Match Score</strong>, you need to tailor your resume for the specific job description.
+                            A healthy resume is just the start. To improve ATS compatibility, tailor your resume for the specific job description. Scores vary across employers and ATS providers.
                         </p>
                         <button
                             onClick={onContinueToOptimizer}

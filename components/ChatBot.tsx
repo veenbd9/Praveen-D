@@ -1,7 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Chat } from "@google/genai";
-import { createSupportChatSession, sendMessageToChat } from '../services/geminiService';
+import { ChatSession, createSupportChatSession, sendMessageToChat } from '../services/geminiClient';
 import { User } from '../types';
 
 interface ChatBotProps {
@@ -19,7 +18,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({ user }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const chatSessionRef = useRef<Chat | null>(null);
+  const chatSessionRef = useRef<ChatSession | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Razorpay from 'razorpay';
+import { getPlanPrice } from '../lib/paymentPlans';
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID as string,
@@ -18,10 +19,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { amount, currency = 'INR', planType, userId } = req.body ?? {};
+  const { currency = 'INR', planType, userId } = req.body ?? {};
 
-  if (!amount || !planType || !userId) {
+  if (!planType || !userId) {
     res.status(400).json({ error: 'Missing required fields.' });
+    return;
+  }
+
+  if (currency !== 'INR') {
+    res.status(400).json({ error: 'Razorpay payments must use INR.' });
+    return;
+  }
+
+  const amount = getPlanPrice(planType, currency);
+  if (amount === null) {
+    res.status(400).json({ error: 'Unsupported subscription plan.' });
     return;
   }
 

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { JobPosting, JobApplication } from '../types';
+import { JobPosting } from '../types';
 import { searchJobs, generateMailtoLink } from '../services/jobService';
 
 interface JobSearchSectionProps {
@@ -14,6 +14,7 @@ export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateNam
     const [jobs, setJobs] = useState<JobPosting[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
+    const [searchError, setSearchError] = useState<string | null>(null);
     const [trackedJobs, setTrackedJobs] = useState<Set<string>>(new Set());
 
     const handleSearch = async (e: React.FormEvent) => {
@@ -22,11 +23,13 @@ export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateNam
         
         setIsLoading(true);
         setHasSearched(true);
+        setSearchError(null);
         try {
             const results = await searchJobs(query, location);
             setJobs(results);
         } catch (error) {
-            console.error("Search failed", error);
+            setJobs([]);
+            setSearchError(error instanceof Error ? error.message : 'Unable to search jobs right now.');
         } finally {
             setIsLoading(false);
         }
@@ -91,6 +94,12 @@ export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateNam
 
             {/* Results */}
             <div className="space-y-4 max-w-4xl mx-auto">
+                {searchError && (
+                    <div className="text-center py-8 px-4 bg-amber-950/30 border border-amber-800/60 rounded-lg text-amber-200">
+                        <p>{searchError}</p>
+                        <p className="text-sm text-amber-300/70 mt-2">Try again after the job search service has been configured.</p>
+                    </div>
+                )}
                 {jobs.map(job => (
                     <div key={job.id} className="bg-slate-900 border border-slate-700 p-5 rounded-lg hover:border-emerald-500/50 transition-all group">
                         <div className="flex justify-between items-start">
@@ -172,7 +181,7 @@ export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateNam
                     </div>
                 ))}
 
-                {hasSearched && jobs.length === 0 && !isLoading && (
+                {hasSearched && !searchError && jobs.length === 0 && !isLoading && (
                     <div className="text-center py-12 text-slate-500">
                         <p>No jobs found matching your criteria.</p>
                         <p className="text-sm">Try broader keywords or a different location.</p>

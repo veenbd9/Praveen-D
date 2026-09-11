@@ -14,6 +14,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
   const [loading, setLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [adminBank, setAdminBank] = useState<AdminBankDetails | null>(null);
+  const [billingTermsAccepted, setBillingTermsAccepted] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{ type: 'free' | '1-month' | '3-month' | '6-month' | 'renewal'; price: number; currency: string } | null>(null);
 
   useEffect(() => {
@@ -140,9 +141,19 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
                       </div>
                   )}
 
+                  <label className="mt-5 flex items-start gap-3 text-sm text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={billingTermsAccepted}
+                      onChange={(event) => setBillingTermsAccepted(event.target.checked)}
+                      className="mt-1 h-4 w-4 accent-indigo-600"
+                    />
+                    <span>I agree to the Terms of Service and understand the subscription billing terms.</span>
+                  </label>
+
                   <button 
                     onClick={confirmPayment} 
-                    disabled={loading}
+                    disabled={loading || !billingTermsAccepted}
                     className="w-full mt-6 bg-gradient-to-r from-indigo-600 to-cyan-600 text-white font-bold py-3 rounded shadow-lg hover:from-indigo-700 hover:to-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                       {loading ? 'Redirecting to payment...' : isIndia ? 'Pay with Razorpay' : 'Pay with Stripe'}
@@ -189,7 +200,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl w-full">
         
-        {/* FREE TIER - UPDATED TO 3 SCANS */}
+        {/* FREE TIER - ONE COMPLIMENTARY BUILD */}
         <PlanCard
             title="Free Tier"
             price={isIndia ? "₹0" : "$0"}
@@ -197,7 +208,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
             type="free"
             isFree={true}
             features={[
-                "3 ATS Match Scans",
+                "1 ATS resume build",
                 "Basic Formatting",
                 "Watermarked PDF Downloads",
             ]}
@@ -209,11 +220,11 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
           <>
             <PlanCard
                 title="Early Bird Monthly"
-                price="₹299"
+                price="₹399"
                 duration="month"
                 type="1-month"
                 features={[
-                    "Unlimited Optimizations",
+                    "99 resume builds",
                     "Unlimited Cover Letters",
                     "No Watermarks",
                     "Priority Support"
@@ -222,13 +233,12 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
             />
             <PlanCard
                 title="Early Bird Quarterly"
-                price="₹599"
+                price="₹799"
                 duration="3 months"
                 type="3-month"
                 recommended={true}
                 features={[
-                    "Save 33% vs Monthly",
-                    "Unlimited Access",
+                    "300 resume builds",
                     "Advanced ATS Analysis",
                     "Priority Processing"
                 ]}
@@ -236,12 +246,11 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
             />
              <PlanCard
                 title="Early Bird Half-Yearly"
-                price="₹999"
+                price="₹1499"
                 duration="6 months"
                 type="6-month"
                 features={[
-                     "Best Long-Term Value",
-                     "Equivalent to ₹166/mo",
+                     "600 resume builds",
                      "Career Coaching Chatbot",
                      "All Premium Features"
                 ]}
@@ -259,7 +268,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
                 duration="month"
                 type="1-month"
                 features={[
-                    "Unlimited Optimizations",
+                    "99 resume builds",
                     "Unlimited Cover Letters",
                     "No Watermarks",
                     "Priority Support"
@@ -273,8 +282,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
                 type="3-month"
                 recommended={true}
                 features={[
-                    "Save vs Monthly",
-                    "Unlimited Access",
+                    "300 resume builds",
                     "Advanced Analysis",
                     "Priority Processing"
                 ]}
@@ -286,8 +294,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ user, onSubs
                 duration="6 months"
                 type="6-month"
                 features={[
-                    "Best Long-Term Value",
-                    "Unlimited Access",
+                    "600 resume builds",
                     "All Premium Features",
                     "No Watermarks"
                 ]}

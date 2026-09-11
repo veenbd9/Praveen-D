@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 // client-side use and is protected by Row Level Security (RLS) policies on the DB.
 const SUPABASE_URL = process.env.SUPABASE_URL as string;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY as string;
+export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   // Do not throw at import-time (breaks the whole bundle in dev before .env.local
@@ -16,4 +17,9 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   );
 }
 
-export const supabase = createClient(SUPABASE_URL || '', SUPABASE_ANON_KEY || '');
+// Keep the module importable in a fresh checkout so the UI can show setup
+// instructions instead of failing with a blank screen.
+export const supabase = createClient(
+  SUPABASE_URL || 'https://local-development.invalid',
+  SUPABASE_ANON_KEY || 'local-development-anon-key'
+);

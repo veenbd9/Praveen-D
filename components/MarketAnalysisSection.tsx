@@ -1,11 +1,15 @@
 
 import React, { useState, useMemo } from 'react';
 import { MarketTrendAnalysis, RegressionResult, MarketDataPoint } from '../types';
-import { analyzeMarketTrends } from '../services/geminiService';
+import { analyzeMarketTrends } from '../services/geminiClient';
 
 // --- Linear Regression Logic (Client-Side) ---
 // Calculates y = mx + b and r^2
 const calculateLinearRegression = (data: MarketDataPoint[]): RegressionResult => {
+    if (data.length === 0) {
+        throw new Error('Market analysis returned no historical salary data.');
+    }
+
     const n = data.length;
     let sumX = 0;
     let sumY = 0;
@@ -21,13 +25,14 @@ const calculateLinearRegression = (data: MarketDataPoint[]): RegressionResult =>
         sumYY += (point.salary * point.salary);
     });
 
-    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const denominator = n * sumXX - sumX * sumX;
+    const slope = denominator === 0 ? 0 : (n * sumXY - sumX * sumY) / denominator;
     const intercept = (sumY - slope * sumX) / n;
 
     // R-Squared Calculation
-    const rNumerator = (n * sumXY - sumX * sumY);
-    const rDenominator = Math.sqrt((n * sumXX - sumX * sumX) * (n * sumYY - sumY * sumY));
-    const rSquared = Math.pow(rNumerator / rDenominator, 2);
+    const rNumerator = n * sumXY - sumX * sumY;
+    const rDenominator = Math.sqrt(denominator * (n * sumYY - sumY * sumY));
+    const rSquared = rDenominator === 0 ? 1 : Math.pow(rNumerator / rDenominator, 2);
 
     const predictionNextYear = slope * (new Date().getFullYear() + 1) + intercept;
     const predictionTwoYears = slope * (new Date().getFullYear() + 2) + intercept;
@@ -48,6 +53,7 @@ export const MarketAnalysisSection: React.FC = () => {
     const [analysis, setAnalysis] = useState<MarketTrendAnalysis | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [regression, setRegression] = useState<RegressionResult | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     const handleAnalyze = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -56,18 +62,16 @@ export const MarketAnalysisSection: React.FC = () => {
         setIsLoading(true);
         setAnalysis(null);
         setRegression(null);
+        setError(null);
 
         try {
             const result = await analyzeMarketTrends(role, location);
             setAnalysis(result);
             
-            // Perform Regression on the historical data returned by AI
-            if (result.historicalData.length > 0) {
-                const regResult = calculateLinearRegression(result.historicalData);
-                setRegression(regResult);
-            }
+            const regResult = calculateLinearRegression(result.historicalData);
+            setRegression(regResult);
         } catch (error) {
-            console.error("Market analysis failed:", error);
+            setError(error instanceof Error ? error.message : 'Market analysis failed. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -79,7 +83,7 @@ export const MarketAnalysisSection: React.FC = () => {
         
         // Combine history + predictions
         const currentYear = new Date().getFullYear();
-        const history = analysis.historicalData.sort((a,b) => a.year - b.year);
+        const history = [...analysis.historicalData].sort((a,b) => a.year - b.year);
         
         // Generate projected points
         const futureYears = [currentYear + 1, currentYear + 2];
@@ -94,14 +98,19 @@ export const MarketAnalysisSection: React.FC = () => {
         // Scaling for SVG
         const minYear = Math.min(...allPoints.map(p => p.year));
         const maxYear = Math.max(...allPoints.map(p => p.year));
-        const minSal = Math.min(...allPoints.map(p => p.salary)) * 0.9;
-        const maxSal = Math.max(...allPoints.map(p => p.salary)) * 1.1;
+        const yearRange = Math.max(maxYear - minYear, 1);
+        const salaries = allPoints.map(p => p.salary);
+        const rawMinSalary = Math.min(...salaries);
+        const rawMaxSalary = Math.max(...salaries);
+        const salaryRange = Math.max(rawMaxSalary - rawMinSalary, 1);
+        const minSal = rawMinSalary - salaryRange * 0.1;
+        const maxSal = rawMaxSalary + salaryRange * 0.1;
         
         const width = 600;
         const height = 300;
         const padding = 40;
 
-        const getX = (year: number) => padding + ((year - minYear) / (maxYear - minYear)) * (width - 2 * padding);
+        const getX = (year: number) => padding + ((year - minYear) / yearRange) * (width - 2 * padding);
         const getY = (sal: number) => height - padding - ((sal - minSal) / (maxSal - minSal)) * (height - 2 * padding);
 
         return { allPoints, getX, getY, width, height, minSal, maxSal };
@@ -206,7 +215,7 @@ export const MarketAnalysisSection: React.FC = () => {
                             <p className="text-3xl font-bold text-white mb-1">
                                 {regression.predictionTwoYears.toFixed(1)} <span className="text-sm font-normal text-slate-400">{analysis.currency}</span>
                             </p>
-                            <p className="text-xs text-slate-300 mb-4">Projected Market Rate in 2026</p>
+                            <p className="text-xs text-slate-300 mb-4">Projected Market Rate in {new Date().getFullYear() + 2}</p>
                             
                             <div className={`text-sm font-bold px-3 py-1 rounded w-max ${regression.trendDirection === 'Positive' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
                                 Trend: {regression.trendDirection}
@@ -244,7 +253,13 @@ export const MarketAnalysisSection: React.FC = () => {
                 </div>
             )}
 
-            {!isLoading && !analysis && (
+            {error && !isLoading && (
+                <div className="max-w-2xl mx-auto mt-8 p-4 rounded-lg border border-red-800/60 bg-red-950/30 text-center text-red-200">
+                    {error}
+                </div>
+            )}
+
+            {!isLoading && !analysis && !error && (
                 <div className="text-center py-20 opacity-50">
                     <div className="w-16 h-16 border-4 border-slate-700 border-t-purple-500 rounded-full animate-spin mx-auto mb-4 opacity-0"></div>
                     <p className="text-lg">Enter role details to generate regression model.</p>

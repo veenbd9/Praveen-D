@@ -1,18 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+import { getPlanDurationDays, getPlanQuota } from '../lib/paymentPlans';
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL as string,
   process.env.SUPABASE_SERVICE_ROLE_KEY as string
 );
-
-const planDurationDays: Record<string, number> = {
-  '1-month': 30,
-  '3-month': 90,
-  '6-month': 180,
-  renewal: 30,
-};
 
 /**
  * Verifies the HMAC signature returned by Razorpay Checkout after a successful
@@ -64,7 +58,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     provider_ref: razorpay_order_id,
   });
 
-  const days = planDurationDays[planType] ?? 30;
+  const days = getPlanDurationDays(planType) ?? 30;
+  const resumeLimit = getPlanQuota(planType) ?? 99;
   const { data: profile } = await supabaseAdmin.from('profiles').select('subscription').eq('id', userId).single();
   const newSubscription = {
     ...(profile?.subscription ?? {}),
@@ -72,6 +67,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     planType,
     startDate: Date.now(),
     expiryDate: Date.now() + days * 24 * 60 * 60 * 1000,
+    usageCount: 0,
+    resumeLimit,
     hasCompletedThreeMonthPlan: planType === '3-month' ? true : profile?.subscription?.hasCompletedThreeMonthPlan,
   };
   await supabaseAdmin.from('profiles').update({ subscription: newSubscription }).eq('id', userId);

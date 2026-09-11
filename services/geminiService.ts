@@ -2,7 +2,7 @@
 import { GoogleGenAI, Type, Chat } from "@google/genai";
 import { AnalysisResult, BrainstormResult, User, MarketTrendAnalysis, CompanyConflictResult } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const postProcessText = (text: string): string => {
     if (!text) return "";
@@ -124,11 +124,25 @@ const getInitialScore = async (resume: string, jobDescription: string): Promise<
   });
 };
 
-const getOptimizedResume = async (resume: string, jobDescription: string): Promise<any> => {
+const getOptimizedResume = async (resume: string, jobDescription: string, metricContext: string): Promise<any> => {
   const prompt = `
-    You are an expert Executive Resume Writer. Rewrite the resume for a 95-100% match.
+    You are an expert resume writer and ATS-safe document architect. Rewrite the resume for strong, evidence-based alignment with the job description without inventing facts.
+    Document architecture requirements:
+    - Output a strict single-column, plain-text resume.
+    - Use only these semantic section headers when applicable: SUMMARY, WORK EXPERIENCE, EDUCATION, SKILLS, CERTIFICATIONS, PROJECTS.
+    - Never use tables, columns, text boxes, icons, graphics, emojis, decorative separators, or creative section names.
+    - Keep content linear and easy for Workday, Greenhouse, and Lever parsers to extract.
+    Writing requirements:
+    - Never claim that an ATS or recruiter can detect or reject AI text automatically. Optimize for clean parsing and authentic human review.
+    - Do not use these AI-sounding words: spearheaded, orchestrated, delve, tapestry, meticulous, synergized, testament.
+    - Vary bullet rhythm and length. Make one major achievement per role prominent while keeping other bullets realistic daily responsibilities.
+    - Use only facts from the original resume or the user's metric notes. Never fabricate employers, dates, titles, tools, results, or metrics.
+    - Prefer exact user-provided numbers, including decimal or non-round values. If a metric is missing, write a truthful qualitative statement rather than inventing one.
+    - Identify core competencies from the Job Description and express them through the user's actual transferable experience; do not keyword-stuff or repeat the JD.
+    Return the optimized resume as flat text, with one bullet per line and no markdown code fences.
     Job Description: ${jobDescription}
     Original Resume: ${resume}
+    User metric and context notes: ${metricContext || 'No additional notes supplied. Do not invent metrics.'}
   `;
   return await retryWithBackoff(async () => {
       const response = await ai.models.generateContent({
@@ -140,9 +154,10 @@ const getOptimizedResume = async (resume: string, jobDescription: string): Promi
                 type: Type.OBJECT,
                 properties: {
                     optimizedResume: { type: Type.STRING },
-                    changes: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    changes: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    bulletVariations: { type: Type.ARRAY, items: { type: Type.STRING } }
                 },
-                required: ['optimizedResume', 'changes']
+                required: ['optimizedResume', 'changes', 'bulletVariations']
             }
         }
       });
@@ -168,9 +183,9 @@ export const regenerateCoverLetter = async (currentLetter: string, jobDescriptio
     });
 };
 
-export const analyzeAndOptimizeResume = async (resume: string, jobDescription: string): Promise<AnalysisResult> => {
+export const analyzeAndOptimizeResume = async (resume: string, jobDescription: string, metricContext = ''): Promise<AnalysisResult> => {
     const initialAnalysis = await getInitialScore(resume, jobDescription);
-    const optimizationResult = await getOptimizedResume(resume, jobDescription);
+    const optimizationResult = await getOptimizedResume(resume, jobDescription, metricContext);
     const coverLetter = await generateCoverLetter(resume, jobDescription);
     let newScore = initialAnalysis.score + 15;
     if (newScore > 98) newScore = 98;
@@ -180,6 +195,7 @@ export const analyzeAndOptimizeResume = async (resume: string, jobDescription: s
         initialSummary: initialAnalysis.summary,
         optimizedResume: optimizationResult.optimizedResume,
         changes: optimizationResult.changes,
+        bulletVariations: optimizationResult.bulletVariations,
         optimizedScore: newScore,
         coverLetter: coverLetter,
         candidateName: "Candidate",
@@ -394,7 +410,7 @@ export const createSupportChatSession = (user: User): Chat => {
             - We have WhatsApp Business integration for personalized support.
             - Users receive gradual WhatsApp messages to encourage better job applications.
             - All optimized resumes are available anytime in the 'Application History'.
-            - We encourage users to upgrade to 'Premium' for highly personalized performance and 95%+ match scores.
+            - We encourage users to upgrade to Premium for higher usage limits and personalized resume tailoring. Never promise a specific ATS score or hiring outcome.
 
             SCOPE:
             1. Resume Building: Explain the 'Job-Specific Optimizer', structural health checks, and ATS vendor simulation.

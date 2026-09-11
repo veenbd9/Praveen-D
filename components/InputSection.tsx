@@ -9,6 +9,8 @@ interface InputSectionProps {
   setResumeText: (text: string) => void;
   jobDescriptionText: string;
   setJobDescriptionText: (text: string) => void;
+  metricContext: string;
+  setMetricContext: (text: string) => void;
   companyName: string;
   setCompanyName: (name: string) => void;
   jobTitle: string;
@@ -29,6 +31,8 @@ export const InputSection: React.FC<InputSectionProps> = ({
   setResumeText,
   jobDescriptionText,
   setJobDescriptionText,
+  metricContext,
+  setMetricContext,
   companyName,
   setCompanyName,
   jobTitle,
@@ -122,6 +126,21 @@ export const InputSection: React.FC<InputSectionProps> = ({
             className="w-full bg-slate-900 border border-slate-700 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-300 placeholder-slate-500"
             disabled={totalLoading}
             />
+        </div>
+
+        <div>
+          <label htmlFor="metric-context" className="block text-lg font-semibold text-slate-300 mb-2">
+            Exact achievements and metrics <span className="text-sm font-normal text-slate-500">(recommended)</span>
+          </label>
+          <textarea
+            id="metric-context"
+            value={metricContext}
+            onChange={(e) => setMetricContext(e.target.value)}
+            placeholder="Add facts the AI must preserve: team size, revenue, time saved, percentages, tools, scope, or outcomes. Example: managed 11 analysts; reduced cycle time by 18.5%."
+            className="w-full h-24 bg-slate-900 border border-slate-700 rounded-md p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-slate-300 placeholder-slate-500"
+            disabled={totalLoading}
+          />
+          <p className="text-xs text-slate-500 mt-1">We use only facts you provide here or in your resume. The generator will not invent metrics.</p>
         </div>
         <div>
             <label htmlFor="job-title" className="block text-lg font-semibold text-slate-300 mb-2">

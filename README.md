@@ -22,6 +22,21 @@ only run when deployed to Vercel (or via `vercel dev` locally).
 
 ## Production Setup Checklist
 
+### Security requirements
+
+- Keep the GitHub repository **private** and restrict organization/team access.
+- Never commit `.env.local`, API keys, service-role keys, payment secrets, or
+  webhook signing secrets. Rotate any secret that has ever appeared in a
+  public commit or client bundle.
+- Gemini calls run through the authenticated `/api/gemini` serverless route;
+  keep `GEMINI_API_KEY` configured only in Vercel server environment variables.
+- Enable Vercel deployment protection for preview deployments and require
+  protected branch reviews in GitHub.
+- Enable Supabase email confirmation, MFA for administrators, RLS, and database
+  backups. Keep the service-role key server-only.
+- Add server-side rate limiting and request-size limits to AI, job-search,
+  email, and payment endpoints before launch.
+
 ### 1. Supabase (auth + database)
 1. Create a project at https://supabase.com.
 2. In the SQL Editor, run [`supabase/schema.sql`](supabase/schema.sql) — this
@@ -29,9 +44,18 @@ only run when deployed to Vercel (or via `vercel dev` locally).
    Security policies, plus a trigger that auto-creates a profile on signup.
 3. In **Authentication → Providers**, ensure Email provider is enabled, and
    enable "Email OTP" for the 2FA login step.
+   New signups receive an email OTP before the account session is completed.
 4. Copy your **Project URL** and **anon public key** into `.env.local`
    (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
-5. Copy the **service_role key** (Project Settings → API) into your Vercel
+   For local password recovery testing, add `http://127.0.0.1:3000` and
+   `http://localhost:3000` under **Authentication → URL Configuration →
+   Redirect URLs** in Supabase.
+   Password recovery is enabled for every account, including
+   `veenbd9@gmail.com`; the super-admin still receives the separate OTP
+   challenge when signing in after the password is reset.
+5. Add a valid `GEMINI_API_KEY` to the local/server environment before using
+   Health Check or resume analysis. This key must remain server-side.
+6. Copy the **service_role key** (Project Settings → API) into your Vercel
    environment variables as `SUPABASE_SERVICE_ROLE_KEY` — never expose this
    key in frontend code or commit it to git.
 
@@ -71,7 +95,15 @@ only run when deployed to Vercel (or via `vercel dev` locally).
    Checkout automatically offers all UPI apps installed on the customer's
    device, along with cards and netbanking.
 
-### 6. Brevo (customer emails)
+### 6. Adzuna (job search)
+1. Register for an API account at https://developer.adzuna.com.
+2. Copy the application ID and key into `ADZUNA_APP_ID` and `ADZUNA_APP_KEY`
+   in Vercel. Keep these values server-side; the Jobs tab accesses them through
+   `/api/jobs`.
+3. The app currently searches Adzuna's India endpoint and preserves each
+   provider's application URL for the Apply and Track workflows.
+
+### 7. Brevo (customer emails)
 1. Create an account at https://www.brevo.com.
 2. Verify a sender identity/domain (e.g. `noreply@scaleupresume.com`) under
    Senders & IP → Senders.
@@ -80,7 +112,7 @@ only run when deployed to Vercel (or via `vercel dev` locally).
 4. Transactional emails (payment confirmations, etc.) are sent via
    `POST /api/send-email`, see [`services/paymentService.ts`](services/paymentService.ts).
 
-### 7. Google Reviews widget
+### 8. Google Reviews widget
 1. Create/claim your Google Business Profile for ScaleupResume.
 2. Get a **Places API key** in Google Cloud Console (enable the "Places API")
    → set as `GOOGLE_PLACES_API_KEY` in Vercel.
@@ -90,4 +122,3 @@ only run when deployed to Vercel (or via `vercel dev` locally).
    "Leave a review" link) and Vercel (server-side, used to fetch reviews).
 4. The widget renders automatically at the bottom of the app via
    [`components/ReviewsSection.tsx`](components/ReviewsSection.tsx).
-

@@ -95,11 +95,15 @@ export const sendTransactionalEmail = async (
   subject: string,
   htmlContent: string
 ) => {
-  await fetch('/api/send-email', {
+  const response = await fetch('/api/send-email', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ to, toName, subject, htmlContent }),
   });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.error || 'Failed to send transactional email.');
+  }
 };
 
 export const getSupabaseUserId = async (): Promise<string | null> => {

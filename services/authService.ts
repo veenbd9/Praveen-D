@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import type { User, SubscriptionDetails } from '../types';
+import { getPlanQuota } from '../lib/paymentPlans';
 
 const DEFAULT_SUBSCRIPTION: SubscriptionDetails = {
   isActive: true,
@@ -8,6 +9,7 @@ const DEFAULT_SUBSCRIPTION: SubscriptionDetails = {
   expiryDate: 9999999999999,
   hasCompletedThreeMonthPlan: false,
   usageCount: 0,
+  resumeLimit: 1,
   lastUsageReset: Date.now(),
 };
 
@@ -23,16 +25,23 @@ export interface SignUpInput {
  * Maps a Supabase auth user + its `profiles` row into the app's internal
  * `User` shape used throughout the UI.
  */
-const mapToAppUser = (authUser: any, profile: any): User => ({
-  name: profile?.name ?? authUser.user_metadata?.name ?? authUser.email,
-  email: authUser.email,
-  isAdmin: profile?.is_admin ?? false,
-  countryCode: profile?.country_code ?? '+91',
-  phoneNumber: profile?.phone_number ?? '',
-  status: profile?.status ?? 'ACTIVE',
-  resumeMismatchCount: profile?.resume_mismatch_count ?? 0,
-  subscription: profile?.subscription ?? DEFAULT_SUBSCRIPTION,
-});
+const mapToAppUser = (authUser: any, profile: any): User => {
+  const subscription = profile?.subscription ?? DEFAULT_SUBSCRIPTION;
+  return {
+    name: profile?.name ?? authUser.user_metadata?.name ?? authUser.email,
+    email: authUser.email,
+    isAdmin: profile?.is_admin ?? false,
+    countryCode: profile?.country_code ?? '+91',
+    phoneNumber: profile?.phone_number ?? '',
+    status: profile?.status ?? 'ACTIVE',
+    resumeMismatchCount: profile?.resume_mismatch_count ?? 0,
+    subscription: {
+      ...DEFAULT_SUBSCRIPTION,
+      ...subscription,
+      resumeLimit: subscription.planType === 'free' ? 1 : subscription.resumeLimit ?? getPlanQuota(subscription.planType) ?? 1,
+    },
+  };
+};
 
 export const fetchProfile = async (userId: string) => {
   const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
@@ -63,6 +72,20 @@ export const signIn = async (email: string, password: string) => {
 
 export const signOut = async () => {
   await supabase.auth.signOut();
+};
+
+export const updatePassword = async (password: string) => {
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
+};
+
+export const requestPasswordReset = async (email: string) => {
+  // This intentionally applies to every Supabase Auth account, including the
+  // super-admin account. Admin status does not bypass or disable recovery.
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin,
+  });
+  if (error) throw error;
 };
 
 export const getCurrentUser = async (): Promise<User | null> => {

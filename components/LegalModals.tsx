@@ -40,12 +40,13 @@ export const LegalModal: React.FC<LegalModalProps> = ({ isOpen, onClose, type })
                         <p className="mb-2">The service and its outputs are provided "AS IS" and "AS AVAILABLE" without any warranties, express or implied, including fitness for a particular purpose or accuracy.</p>
                         
                         <h4 className="text-white font-semibold mt-3">Limitation of Liability</h4>
-                        <p>We expressly disclaim any guarantee of employment, interviews, or the achievement of any specific success metric, including an ATS match score of 85% or higher. The developer is not liable for any damages, losses, or negative employment consequences resulting from your reliance on this application.</p>
+                        <h4 className="text-white font-semibold mt-3">ATS Compatibility Disclaimer</h4>
+                        <p>Our service utilizes advanced formatting and keyword optimization designed to achieve an ATS compatibility score of 90% or higher based on the provided Job Description. However, Applicant Tracking Systems (ATS) vary widely by employer and software provider. We do not guarantee employment, interview invitations, or a flawless parse rate across all third-party systems.</p>
                     </div>
 
                     <p><strong>1. Acceptance of Terms:</strong> By using ScaleupResume, you agree to these terms and the disclaimer above.</p>
                     <p><strong>2. Acceptable Use:</strong> You agree not to misuse the service, including generating resumes for individuals other than yourself (Identity Theft Protection).</p>
-                    <p><strong>3. Subscription & Refunds:</strong> Subscriptions are billed as per the plan selected. Indian users are eligible for special renewal rates after 3 months.</p>
+                    <p><strong>3. Subscription, Renewal & Cancellation:</strong> Premium subscription plans are billed monthly, quarterly, or semi-annually according to the selected plan and automatically renew unless canceled prior to the next billing date. Users may cancel their subscription at any time through their account settings. We reserve the right to monitor account usage to prevent system abuse. Indian users may be eligible for special renewal rates after 3 months.</p>
                     <p><strong>4. Termination:</strong> We reserve the right to suspend accounts found in breach of contract (e.g., excessive identity changes).</p>
                     <p><strong>5. Governing Law:</strong> These terms shall be governed by the laws of India.</p>
                 </>

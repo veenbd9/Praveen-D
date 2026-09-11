@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Logo } from './Logo';
+import { UserSettings } from './UserSettings';
 
 interface HeaderProps {
   userName?: string;
@@ -9,9 +10,11 @@ interface HeaderProps {
   viewMode?: 'admin' | 'user';
   onToggleViewMode?: () => void;
   onManageSubscription?: () => void;
+  onChangePassword: (password: string) => Promise<void>;
 }
 
-export const Header: React.FC<HeaderProps> = ({ userName, isAdmin, onLogout, viewMode, onToggleViewMode, onManageSubscription }) => {
+export const Header: React.FC<HeaderProps> = ({ userName, isAdmin, onLogout, viewMode, onToggleViewMode, onManageSubscription, onChangePassword }) => {
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
   return (
     <header className="bg-slate-900/70 backdrop-blur-md sticky top-0 z-30 border-b border-slate-800">
       <div className="container mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center">
@@ -50,12 +53,16 @@ export const Header: React.FC<HeaderProps> = ({ userName, isAdmin, onLogout, vie
                 )}
                 <div className="h-8 w-[1px] bg-slate-800 hidden md:block"></div>
                 <span className="text-slate-400 font-medium text-sm hidden md:inline">{userName}</span>
+                <button onClick={() => setSettingsOpen(true)} className="text-slate-400 hover:text-white text-xs font-bold uppercase tracking-widest" aria-label="Open user settings">
+                    Settings
+                </button>
                 <button onClick={onLogout} className="text-slate-500 hover:text-white transition-colors">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                 </button>
             </div>
         )}
       </div>
+      {settingsOpen && <UserSettings onClose={() => setSettingsOpen(false)} onChangePassword={onChangePassword} />}
     </header>
   );
 };

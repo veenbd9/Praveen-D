@@ -18,6 +18,7 @@ create table if not exists public.profiles (
     'expiryDate', 9999999999999,
     'hasCompletedThreeMonthPlan', false,
     'usageCount', 0,
+    'resumeLimit', 1,
     'lastUsageReset', extract(epoch from now()) * 1000
   ),
   created_at timestamptz not null default now()

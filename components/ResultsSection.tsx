@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { AnalysisResult } from '../types';
 import { ScoreDisplay } from './ScoreDisplay';
-import { regenerateCoverLetter } from '../services/geminiService';
+import { regenerateCoverLetter } from '../services/geminiClient';
 
 declare const jspdf: any;
 
@@ -20,6 +20,7 @@ export const ResultsSection: React.FC<ResultsSectionProps> = ({ result, candidat
   const [coverLetterCopySuccess, setCoverLetterCopySuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'deepDive'>('overview');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [editableResume, setEditableResume] = useState(result.optimizedResume);
   
   // Cover Letter Refinement State
   const [currentCoverLetter, setCurrentCoverLetter] = useState(result.coverLetter);
@@ -34,6 +35,7 @@ export const ResultsSection: React.FC<ResultsSectionProps> = ({ result, candidat
   // Reset state when result changes
   useEffect(() => {
       setCurrentCoverLetter(result.coverLetter);
+      setEditableResume(result.optimizedResume);
       setRefinementInput('');
       setSaveSuccess(false);
       // Reset to overview if deep dive is disabled but selected
@@ -57,7 +59,7 @@ export const ResultsSection: React.FC<ResultsSectionProps> = ({ result, candidat
   }, []);
 
   const handleSaveToProfile = () => {
-      onSaveToProfile(result.optimizedResume, `Optimized for ${companyName}`);
+      onSaveToProfile(editableResume, `Optimized for ${companyName}`);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
   };
@@ -67,6 +69,12 @@ export const ResultsSection: React.FC<ResultsSectionProps> = ({ result, candidat
       orientation: 'p',
       unit: 'mm',
       format: 'a4',
+    });
+    doc.setProperties({
+      title: `${candidateName} Resume`,
+      subject: 'ATS-compatible resume',
+      author: 'ScaleupResume',
+      creator: 'ScaleupResume',
     });
     
     const safeCandidateName = candidateName.replace(/[^a-zA-Z0-9]/g, '_') || 'Candidate';
@@ -147,6 +155,8 @@ export const ResultsSection: React.FC<ResultsSectionProps> = ({ result, candidat
     });
 
     const doc = new Document({
+        creator: 'ScaleupResume',
+        title: `${candidateName} Resume`,
         sections: [{
             properties: {},
             children: docChildren
@@ -242,7 +252,7 @@ export const ResultsSection: React.FC<ResultsSectionProps> = ({ result, candidat
                    <div>
                        <h4 className="font-semibold text-slate-300 mb-3 flex items-center">
                            <svg className="w-5 h-5 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                           Recommended Fixes (for 95%+ Score)
+                           Recommended ATS-safe Fixes
                        </h4>
                        <ul className="space-y-2">
                            {recommendations.map((rec, i) => (
@@ -482,15 +492,15 @@ export const ResultsSection: React.FC<ResultsSectionProps> = ({ result, candidat
                         </>
                     )}
                 </ActionButton>
-                <ActionButton onClick={() => handleSavePdf(result.optimizedResume, 'Resume')}>
+                <ActionButton onClick={() => handleSavePdf(editableResume, 'Resume')}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                 <span>PDF</span>
                 </ActionButton>
-                <ActionButton onClick={() => handleSaveDocx(result.optimizedResume, 'Resume')}>
+                <ActionButton onClick={() => handleSaveDocx(editableResume, 'Resume')}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 <span>DOCX</span>
                 </ActionButton>
-                <ActionButton onClick={() => handleCopy(result.optimizedResume, 'resume')}>
+                <ActionButton onClick={() => handleCopy(editableResume, 'resume')}>
                 {resumeCopySuccess ? (
                     <>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
@@ -505,9 +515,30 @@ export const ResultsSection: React.FC<ResultsSectionProps> = ({ result, candidat
                 </ActionButton>
             </div>
             </div>
-            <pre className="whitespace-pre-wrap font-sans text-sm bg-slate-900 border border-slate-700 rounded-md p-4 h-96 overflow-y-auto text-slate-300">
-            {result.optimizedResume}
-            </pre>
+            <p className="text-sm text-indigo-300 mb-3">Human review required: edit the draft so every claim, metric, and wording reflects your real experience before saving or downloading.</p>
+            <textarea
+              value={editableResume}
+              onChange={(event) => setEditableResume(event.target.value)}
+              className="w-full whitespace-pre-wrap font-sans text-sm bg-slate-900 border border-slate-700 rounded-md p-4 h-96 overflow-y-auto text-slate-300 focus:ring-2 focus:ring-indigo-500"
+              aria-label="Editable optimized resume draft"
+            />
+            {result.bulletVariations && result.bulletVariations.length > 0 && (
+              <div className="mt-5 border-t border-slate-700 pt-4">
+                <h3 className="font-semibold text-slate-200">Choose a human-sounding achievement variation</h3>
+                <p className="text-xs text-slate-500 mt-1 mb-3">Select one only if it accurately reflects your experience, then review the full resume above.</p>
+                <div className="space-y-2">
+                  {result.bulletVariations.slice(0, 5).map((variation, index) => (
+                    <button
+                      key={`${variation}-${index}`}
+                      onClick={() => setEditableResume((current) => `${variation}\n\n${current}`)}
+                      className="w-full text-left p-3 rounded border border-slate-700 bg-slate-900/70 hover:border-indigo-500 text-sm text-slate-300"
+                    >
+                      <span className="text-indigo-400 font-bold mr-2">Option {index + 1}</span>{variation}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
         </div>
         
         <div className="bg-slate-800/50 p-6 rounded-lg shadow-lg">

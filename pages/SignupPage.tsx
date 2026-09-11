@@ -1,10 +1,10 @@
 
-import React, { useState, useCallback } from 'react';
-import { LegalModal } from '../components/LegalModals';
+import React, { useState } from 'react';
 
 interface SignupPageProps {
   onSignup: (name: string, email: string, countryCode: string, phoneNumber: string, isVerified: boolean, isPhoneDuplicate: boolean, password?: string) => void;
   onSwitchToLogin: () => void;
+  onViewTerms: () => void;
 }
 
 const countryCodes = [
@@ -16,7 +16,7 @@ const countryCodes = [
     { code: '+other', country: 'Other' }
 ];
 
-const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) => {
+const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin, onViewTerms }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,51 +24,12 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
   const [phoneNumber, setPhoneNumber] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   
-  // Verification State
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [verificationCode, setVerificationCode] = useState('');
-  const [showVerificationModal, setShowVerificationModal] = useState(false);
-  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
-
-  // Legal Modal State
-  const [showLegalModal, setShowLegalModal] = useState(false);
-
   const canSubmit = name && email && password && countryCode && phoneNumber && termsAccepted;
-
-  const checkPhoneExists = (phone: string) => {
-     const dbUsers = JSON.parse(localStorage.getItem('mock_users_db') || '{}');
-     return Object.values(dbUsers).some((u: any) => u.phoneNumber === phone);
-  };
 
   const handleInitialSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
-
-    const isDuplicate = checkPhoneExists(phoneNumber);
-    
-    if (isDuplicate) {
-        setDuplicateWarning(`This phone number (${phoneNumber}) is already registered in the system.`);
-    } else {
-        setDuplicateWarning(null);
-    }
-
-    // Trigger Verification Modal
-    setShowVerificationModal(true);
-  };
-
-  const handleVerifyAndSignup = () => {
-      setIsVerifying(true);
-      // Simulated SMS sending delay
-      setTimeout(() => {
-          // Mock verification: Code must be 1234
-          if (verificationCode === '1234') {
-             const isDuplicate = checkPhoneExists(phoneNumber);
-             onSignup(name, email, countryCode, phoneNumber, true, isDuplicate, password);
-          } else {
-              alert("Invalid Verification Code. Please try again.");
-              setIsVerifying(false);
-          }
-      }, 1000);
+    onSignup(name, email, countryCode, phoneNumber, true, false, password);
   };
 
   return (
@@ -79,7 +40,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
             ScaleupResume
           </h1>
           <p className="mt-2 text-md text-slate-700 font-medium">
-            Create an account to secure your future.
+            Create an account. We will send an email OTP to verify it.
           </p>
         </div>
 
@@ -188,7 +149,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
                             <svg className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 transition-opacity peer-checked:opacity-100" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" width="10" height="10"><polyline points="20 6 9 17 4 12"></polyline></svg>
                         </div>
                         <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">
-                            I have read and agree to the <button type="button" onClick={() => setShowLegalModal(true)} className="text-emerald-400 hover:text-emerald-300 underline font-bold">Terms of Service</button> and acknowledge the disclaimer above.
+                            I have read and agree to the <button type="button" onClick={onViewTerms} className="text-emerald-400 hover:text-emerald-300 underline font-bold">Terms of Service</button> and acknowledge the disclaimer above.
                         </span>
                     </label>
                 </div>
@@ -211,56 +172,6 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) =>
           </p>
         </div>
       </div>
-
-      {/* SMS Verification Modal */}
-      {showVerificationModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-80 z-[70] flex items-center justify-center p-4">
-              <div className="bg-slate-800 border border-slate-700 p-6 rounded-lg max-sm w-full shadow-2xl">
-                  <h3 className="text-xl font-bold text-white mb-4">SMS Verification</h3>
-                  
-                  {duplicateWarning ? (
-                      <div className="bg-yellow-900/30 border border-yellow-600 p-3 rounded mb-4 text-sm text-yellow-200">
-                          <strong>Alert:</strong> {duplicateWarning}
-                          <p className="mt-1">Verifying this number will <strong>suspend the old account</strong> and register this new one.</p>
-                      </div>
-                  ) : (
-                      <p className="text-slate-400 text-sm mb-4">We have sent a verification code to <strong>{countryCode} {phoneNumber}</strong></p>
-                  )}
-
-                  <div className="mb-4">
-                      <label className="block text-sm text-slate-400 mb-1">Enter Code (Mock: 1234)</label>
-                      <input 
-                        type="text" 
-                        value={verificationCode} 
-                        onChange={(e) => setVerificationCode(e.target.value)}
-                        placeholder="XXXX"
-                        className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-center tracking-widest text-xl font-mono"
-                      />
-                  </div>
-
-                  <button 
-                    onClick={handleVerifyAndSignup}
-                    disabled={isVerifying || verificationCode.length < 4}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition-colors mb-2"
-                  >
-                      {isVerifying ? 'Verifying...' : 'Verify & Register'}
-                  </button>
-                   <button 
-                    onClick={() => setShowVerificationModal(false)}
-                    className="w-full text-slate-500 hover:text-slate-300 text-sm"
-                  >
-                      Cancel
-                  </button>
-              </div>
-          </div>
-      )}
-
-      {/* Legal Modal triggered from Signup */}
-      <LegalModal 
-        isOpen={showLegalModal} 
-        onClose={() => setShowLegalModal(false)} 
-        type="terms" 
-      />
 
     </div>
   );

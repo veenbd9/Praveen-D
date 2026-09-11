@@ -1,5 +1,5 @@
 {
   "name": "ScaleupResume",
-  "description": "An intelligent web application that analyzes your resume against a job description, provides an ATS match score, and then generates an optimized version of your resume to achieve a score of 95% or higher, powered by Gemini.",
+  "description": "An intelligent web application that analyzes your resume against a job description and generates an optimized resume using advanced formatting and keyword optimization, powered by Gemini.",
   "requestFramePermissions": []
 }
