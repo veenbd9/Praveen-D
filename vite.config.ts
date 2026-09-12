@@ -71,7 +71,9 @@ export default defineConfig(({ mode }) => {
       define: {
         'process.env.SUPABASE_URL': JSON.stringify(env.SUPABASE_URL),
         'process.env.SUPABASE_ANON_KEY': JSON.stringify(env.SUPABASE_ANON_KEY),
-        'process.env.GOOGLE_PLACE_ID': JSON.stringify(env.GOOGLE_PLACE_ID)
+        'process.env.GOOGLE_PLACE_ID': JSON.stringify(env.GOOGLE_PLACE_ID),
+        'process.env.SITE_LAUNCHED': JSON.stringify(env.SITE_LAUNCHED || 'false'),
+        'process.env.PREVIEW_ACCESS_CODE': JSON.stringify(env.PREVIEW_ACCESS_CODE || 'scaleup-preview-2025')
       },
       resolve: {
         alias: {

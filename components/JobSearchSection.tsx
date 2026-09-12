@@ -11,7 +11,7 @@ interface JobSearchSectionProps {
 }
 
 const EXPERIENCE_LEVELS = [
-    { value: 'any', label: 'Any Experience' },
+    { value: 'any', label: 'Experience Level' },
     { value: 'internship', label: 'Internship' },
     { value: 'entry level', label: 'Entry Level' },
     { value: 'associate', label: 'Associate' },
@@ -21,7 +21,7 @@ const EXPERIENCE_LEVELS = [
 ];
 
 const EMPLOYMENT_TYPES = [
-    { value: 'any', label: 'Any Type' },
+    { value: 'any', label: 'Employment Type' },
     { value: 'full time', label: 'Full Time' },
     { value: 'part time', label: 'Part Time' },
     { value: 'remote', label: 'Remote' },
@@ -33,7 +33,7 @@ const DATE_POSTED_OPTIONS = [
     { value: 'pastWeek', label: 'Past 7 Days' },
     { value: 'past24Hours', label: 'Past 24 Hours' },
     { value: 'pastMonth', label: 'Past Month' },
-    { value: 'anyTime', label: 'Any Time' },
+    { value: 'anyTime', label: 'All Dates' },
 ];
 
 export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateName, resumeText, onTrackJob, onApplyToJob }) => {

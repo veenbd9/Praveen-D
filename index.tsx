@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import Auth from './Auth';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ComingSoonGate } from './components/ComingSoonGate';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -12,7 +13,9 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
+      <ComingSoonGate>
         <Auth />
+      </ComingSoonGate>
     </ErrorBoundary>
   </React.StrictMode>
 );
