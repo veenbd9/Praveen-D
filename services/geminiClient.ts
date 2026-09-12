@@ -1,4 +1,4 @@
-import { AnalysisResult, BrainstormResult, CompanyConflictResult, MarketTrendAnalysis, User } from '../types';
+import { AnalysisResult, BrainstormResult, CompanyConflictResult, JobMatchResult, MarketTrendAnalysis, User } from '../types';
 import { supabase } from './supabaseClient';
 
 export interface ChatSession {
@@ -42,6 +42,11 @@ export const detectCompanyConflict = (inputCompanyName: string, historyCompanies
   request<CompanyConflictResult>('detectCompanyConflict', { inputCompanyName, historyCompanies });
 export const regenerateCoverLetter = (currentLetter: string, jobDescription: string, instructions: string) =>
   request<string>('regenerateCoverLetter', { currentLetter, jobDescription, instructions });
+export const matchJobsToResume = (
+  resume: string,
+  candidateName: string,
+  jobs: { id: string; title: string; company: string; description: string; postedAt: string; recruiterName?: string; recruiterTitle?: string }[]
+) => request<{ results: JobMatchResult[] }>('matchJobsToResume', { resume, candidateName, jobs }).then(r => r.results);
 
 export const createSupportChatSession = (user: User): ChatSession => ({ user });
 

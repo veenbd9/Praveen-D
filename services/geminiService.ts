@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, Chat } from "@google/genai";
-import { AnalysisResult, BrainstormResult, User, MarketTrendAnalysis, CompanyConflictResult } from '../types.js';
+import { AnalysisResult, BrainstormResult, User, MarketTrendAnalysis, CompanyConflictResult, JobMatchResult } from '../types.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -396,6 +396,63 @@ export const detectCompanyConflict = async (inputCompanyName: string, historyCom
     } catch (e) {
         return { hasConflict: false };
     }
+};
+
+interface JobToMatch {
+    id: string;
+    title: string;
+    company: string;
+    description: string;
+    postedAt: string;
+    recruiterName?: string;
+    recruiterTitle?: string;
+}
+
+export const matchJobsToResume = async (resume: string, candidateName: string, jobs: JobToMatch[]): Promise<JobMatchResult[]> => {
+    if (jobs.length === 0) return [];
+    const prompt = `
+    You are a job-search copilot. Compare the candidate's resume against each job listing below and, for every job, produce:
+    - matchScore: 0-100, weighting skills match highest, then experience-level match, then company/role relevance, then recency (jobs posted more recently should score slightly higher when otherwise similar).
+    - matchSummary: one short sentence (under 25 words) on why this role fits (or doesn't) the candidate's background.
+    - outreachMessage: a personalized outreach message under 150 words, written as if from the candidate. It must mention the specific role, briefly explain why the candidate is a good fit (grounded only in resume facts, never invented), and end with a polite call to connect. If a recruiter/hiring manager name is given for that job, address them by first name; otherwise use a generic professional greeting (e.g. "Hi there").
+
+    Candidate name: ${candidateName}
+    Candidate resume:
+    ${resume}
+
+    Jobs (JSON array, respond with one result per "id" in the same order):
+    ${JSON.stringify(jobs)}
+    `;
+    return await retryWithBackoff(async () => {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        results: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    id: { type: Type.STRING },
+                                    matchScore: { type: Type.NUMBER },
+                                    matchSummary: { type: Type.STRING },
+                                    outreachMessage: { type: Type.STRING }
+                                },
+                                required: ['id', 'matchScore', 'matchSummary', 'outreachMessage']
+                            }
+                        }
+                    },
+                    required: ['results']
+                }
+            }
+        });
+        const json = JSON.parse(response.text?.trim() || '{"results":[]}');
+        return (json.results || []) as JobMatchResult[];
+    });
 };
 
 export const createSupportChatSession = (user: User): Chat => {

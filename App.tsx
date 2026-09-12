@@ -36,7 +36,7 @@ Supply Chain/Procurement Manager | Strategic Leader veenbd9@gmail.com
 | Operations | Driving Process Excellence Hyderabad, TS, 500050`;
 
 const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdateUser }) => {
-  const [activeView, setActiveView] = useState<'health-check' | 'optimizer' | 'tracker' | 'jobs' | 'trends'>('health-check');
+  const [activeView, setActiveView] = useState<'health-check' | 'jobs' | 'optimizer' | 'tracker' | 'trends'>('health-check');
   const [resumeText, setResumeText] = useState<string>('');
   const [jobDescriptionText, setJobDescriptionText] = useState<string>('');
   const [metricContext, setMetricContext] = useState<string>('');
@@ -59,6 +59,11 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
   const [conflictData, setConflictData] = useState<CompanyConflictResult | null>(null);
   const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user'>('admin');
   const [activeLegalModal, setActiveLegalModal] = useState<'privacy' | 'terms' | null>(null);
+  // Once a user completes a Health Check in this session, the tab is masked
+  // (hidden from the nav) so they don't re-run it repeatedly; it reappears
+  // automatically after they log out and back in, since this state resets
+  // on a fresh App mount.
+  const [healthCheckUsed, setHealthCheckUsed] = useState<boolean>(false);
 
   useEffect(() => {
     try {
@@ -214,8 +219,20 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
       if (!resumeText) return setError('Resume required.');
       setError(null);
       setIsLoading(true); setCompanyName(''); setJobDescriptionText(''); setAnalyzedCompanyName('Health Check');
-      try { setAnalysisResult(await analyzeResumeGeneralHealth(resumeText)); } catch (err: any) { setError(err.message); } finally { setIsLoading(false); }
+      try { setAnalysisResult(await analyzeResumeGeneralHealth(resumeText)); setHealthCheckUsed(true); } catch (err: any) { setError(err.message); } finally { setIsLoading(false); }
   }, [resumeText]);
+
+  const handleApplyFromJob = useCallback((job: JobPosting) => {
+      // "Apply" on a job search result activates the Optimizer with that
+      // job's description pre-loaded so the user can generate a tailored
+      // resume + cover letter for it.
+      setJobDescriptionText(job.description);
+      setCompanyName(job.company);
+      setJobTitle(job.title);
+      setAnalysisResult(null);
+      setActiveView('optimizer');
+      setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+  }, []);
   
   const handleLoadHistory = useCallback((item: GeneratedResume) => {
       setAnalysisResult(item.analysisResult); setAnalyzedCompanyName(item.companyName); setJobTitle(item.jobTitle);
@@ -234,16 +251,18 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
       </div>
       <div className="bg-gradient-to-r from-emerald-700 via-teal-600 to-cyan-600 shadow-xl border-b border-emerald-400/30 sticky top-[72px] z-10">
           <div className="container mx-auto px-4 py-3 flex space-x-4 overflow-x-auto pb-2 scrollbar-hide">
-              <button onClick={() => setActiveView('health-check')} className={`flex-shrink-0 px-6 py-3 rounded-full font-bold shadow-lg transition-all duration-300 ${activeView === 'health-check' ? 'bg-white text-emerald-700 scale-105 ring-4 ring-emerald-300' : 'bg-emerald-800/40 text-emerald-100 hover:bg-emerald-500 hover:text-white'}`}>Health Check</button>
+              {!healthCheckUsed && <button onClick={() => setActiveView('health-check')} className={`flex-shrink-0 px-6 py-3 rounded-full font-bold shadow-lg transition-all duration-300 ${activeView === 'health-check' ? 'bg-white text-emerald-700 scale-105 ring-4 ring-emerald-300' : 'bg-emerald-800/40 text-emerald-100 hover:bg-emerald-500 hover:text-white'}`}>Health Check</button>}
+              {healthCheckUsed && <span title="Log out and back in to run another Health Check" className="flex-shrink-0 px-6 py-3 rounded-full font-bold bg-emerald-950/40 text-emerald-800 cursor-not-allowed select-none">Health Check ✓</span>}
+              <button onClick={() => setActiveView('jobs')} className={`flex-shrink-0 px-6 py-3 rounded-full font-bold shadow-lg transition-all duration-300 ${activeView === 'jobs' ? 'bg-white text-emerald-700 scale-105 ring-4 ring-emerald-300' : 'bg-emerald-800/40 text-emerald-100 hover:bg-emerald-500 hover:text-white'}`}>Jobs</button>
               <button onClick={() => setActiveView('optimizer')} className={`flex-shrink-0 px-6 py-3 rounded-full font-bold shadow-lg transition-all duration-300 ${activeView === 'optimizer' ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white scale-105 ring-4 ring-pink-300' : 'bg-emerald-800/40 text-emerald-100 hover:bg-emerald-500 hover:text-white'}`}>Optimizer</button>
               <button onClick={() => setActiveView('tracker')} className={`flex-shrink-0 px-6 py-3 rounded-full font-bold shadow-lg transition-all duration-300 ${activeView === 'tracker' ? 'bg-white text-emerald-700 scale-105 ring-4 ring-emerald-300' : 'bg-emerald-800/40 text-emerald-100 hover:bg-emerald-500 hover:text-white'}`}>Tracker</button>
-              <button onClick={() => setActiveView('jobs')} className={`flex-shrink-0 px-6 py-3 rounded-full font-bold shadow-lg transition-all duration-300 ${activeView === 'jobs' ? 'bg-white text-emerald-700 scale-105 ring-4 ring-emerald-300' : 'bg-emerald-800/40 text-emerald-100 hover:bg-emerald-500 hover:text-white'}`}>Jobs</button>
               <button onClick={() => setActiveView('trends')} className={`flex-shrink-0 px-6 py-3 rounded-full font-bold shadow-lg transition-all duration-300 ${activeView === 'trends' ? 'bg-white text-emerald-700 scale-105 ring-4 ring-emerald-300' : 'bg-emerald-800/40 text-emerald-100 hover:bg-emerald-500 hover:text-white'}`}>Trends</button>
           </div>
       </div>
       {isFreePlan && !user.isAdmin && <div className="bg-gradient-to-r from-emerald-900/90 to-teal-900/90 border-b border-teal-500/30 text-center py-2 px-4 backdrop-blur-md"><p className="text-sm text-teal-200"><strong>{Math.max(0, 1 - user.subscription.usageCount)}</strong> free resume build remaining. {canSeePricing && <button onClick={onManageSubscription} className="ml-3 font-bold underline">Upgrade for more resume builds</button>}</p></div>}
       <main className="container mx-auto p-4 md:p-8 flex-grow">
         {activeView === 'health-check' && <HealthCheckView resumeText={resumeText} setResumeText={setResumeText} onAnalyze={handleHealthCheck} isLoading={isLoading} error={error} result={analysisResult} onContinueToOptimizer={() => setActiveView('optimizer')} onReset={() => { setResumeText(''); setAnalysisResult(null); setError(null); }} userEmail={user.email} isAdmin={user.isAdmin} />}
+        {activeView === 'jobs' && <JobSearchSection candidateName={user.name} resumeText={resumeText} onTrackJob={handleTrackJobFromSearch} onApplyToJob={handleApplyFromJob} />}
         {activeView === 'optimizer' && <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <InputSection resumeText={resumeText} setResumeText={setResumeText} jobDescriptionText={jobDescriptionText} setJobDescriptionText={setJobDescriptionText} metricContext={metricContext} setMetricContext={setMetricContext} companyName={companyName} setCompanyName={setCompanyName} jobTitle={jobTitle} setJobTitle={setJobTitle} onAnalyze={handleAnalyze} onScan={handleScanOnly} onHealthCheck={handleHealthCheck} onFetchJd={handleFetchJd} isLoading={isLoading} isFetchingJd={isFetchingJd} savedResumes={savedResumes.filter(r => r.status === 'ACTIVE')} onSaveResume={handleSaveResume} onDeleteResume={handleSuspendResume} />
@@ -258,7 +277,6 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
             <div className="mt-12"><GuideSection /></div>
         </>}
         {activeView === 'tracker' && <JobTrackerBoard applications={jobApplications} onAddApplication={handleAddApplication} onUpdateApplication={handleUpdateApplication} onDeleteApplication={handleDeleteApplication} />}
-        {activeView === 'jobs' && <JobSearchSection candidateName={user.name} onTrackJob={handleTrackJobFromSearch} />}
         {activeView === 'trends' && <MarketAnalysisSection />}
       </main>
       <ChatBot user={user} />

@@ -129,10 +129,18 @@ export interface JobPosting {
   location: string;
   description: string;
   postedAt: string;
-  source: 'Adzuna' | 'ZipRecruiter' | 'Greenhouse' | 'Lever' | 'Direct';
+  source: 'Adzuna' | 'ZipRecruiter' | 'Greenhouse' | 'Lever' | 'Direct' | 'LinkedIn';
   applyType: 'redirect' | 'email'; 
   applyUrl?: string; 
   applyEmail?: string; 
+  // Hiring contact discovered from the source listing (e.g. the LinkedIn job poster).
+  recruiterName?: string;
+  recruiterTitle?: string;
+  recruiterProfileUrl?: string;
+  // Populated client-side by matching the job against the candidate's resume.
+  matchScore?: number;
+  matchSummary?: string;
+  outreachMessage?: string;
 }
 
 export interface MarketDataPoint {
@@ -181,6 +189,13 @@ export interface JobApplication {
     contacts?: ApplicationContact[];
     nextAction?: string;
     nextActionDate?: string;
+}
+
+export interface JobMatchResult {
+    id: string;
+    matchScore: number;
+    matchSummary: string;
+    outreachMessage: string;
 }
 
 export interface CompanyConflictResult {

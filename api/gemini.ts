@@ -10,6 +10,7 @@ import {
   createSupportChatSession,
   detectCompanyConflict,
   fetchJdFromUrl,
+  matchJobsToResume,
   regenerateCoverLetter,
   sendMessageToChat,
 } from '../services/geminiService.js';
@@ -87,6 +88,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json(await detectCompanyConflict(String(body.inputCompanyName || ''), Array.isArray(body.historyCompanies) ? body.historyCompanies.map(String) : []));
       case 'regenerateCoverLetter':
         return res.status(200).json(await regenerateCoverLetter(String(body.currentLetter || ''), String(body.jobDescription || ''), String(body.instructions || '')));
+      case 'matchJobsToResume': {
+        const resume = String(body.resume || '');
+        const candidateName = String(body.candidateName || 'Candidate');
+        const jobs = Array.isArray(body.jobs) ? body.jobs.slice(0, 15) : [];
+        if (!resume || jobs.length === 0) return res.status(200).json({ results: [] });
+        const results = await matchJobsToResume(resume, candidateName, jobs);
+        return res.status(200).json({ results });
+      }
       case 'supportChat': {
         const chat = createSupportChatSession({
           name: authUser.user_metadata?.name || authUser.email || 'User',
