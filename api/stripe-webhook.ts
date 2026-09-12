@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
-import { getPlanDurationDays, getPlanQuota } from '../lib/paymentPlans';
+import { getPlanDurationDays, getPlanQuota } from '../lib/paymentPlans.js';
 import { createClient } from '@supabase/supabase-js';
 
 // Vercel needs the raw request body to verify the Stripe signature, so this

@@ -12,8 +12,8 @@ import {
   fetchJdFromUrl,
   regenerateCoverLetter,
   sendMessageToChat,
-} from '../services/geminiService';
-import { getPlanQuota } from '../lib/paymentPlans';
+} from '../services/geminiService.js';
+import { getPlanQuota } from '../lib/paymentPlans.js';
 
 const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_ANON_KEY || '');
 const supabaseAdmin = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_ROLE_KEY || '');

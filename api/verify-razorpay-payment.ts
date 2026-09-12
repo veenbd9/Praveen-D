@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
-import { getPlanDurationDays, getPlanQuota } from '../lib/paymentPlans';
+import { getPlanDurationDays, getPlanQuota } from '../lib/paymentPlans.js';
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL as string,

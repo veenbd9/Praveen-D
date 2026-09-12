@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
-import { getPlanPrice, type PaidPlanType } from '../lib/paymentPlans';
+import { getPlanPrice, type PaidPlanType } from '../lib/paymentPlans.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2025-02-24.acacia',

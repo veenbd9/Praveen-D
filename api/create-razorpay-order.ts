@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Razorpay from 'razorpay';
-import { getPlanPrice } from '../lib/paymentPlans';
+import { getPlanPrice } from '../lib/paymentPlans.js';
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID as string,

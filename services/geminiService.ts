@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, Chat } from "@google/genai";
-import { AnalysisResult, BrainstormResult, User, MarketTrendAnalysis, CompanyConflictResult } from '../types';
+import { AnalysisResult, BrainstormResult, User, MarketTrendAnalysis, CompanyConflictResult } from '../types.js';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
