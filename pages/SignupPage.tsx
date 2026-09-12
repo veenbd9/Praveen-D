@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { checkPhoneDuplicate, sendPhoneOtp, verifyPhoneOtp } from '../services/authService';
+import { checkPhoneDuplicate } from '../services/authService';
 
 interface SignupPageProps {
   onSignup: (name: string, email: string, countryCode: string, phoneNumber: string, isVerified: boolean, isPhoneDuplicate: boolean, password?: string) => void;
@@ -27,31 +27,15 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin, onVi
   const [checkingPhone, setCheckingPhone] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
-  // Real SMS OTP verification of the phone number (via MSG91, see
-  // services/authService.ts). If MSG91 isn't configured yet on the server,
-  // `sendPhoneOtp` reports `configured: false` and we fall back to the old
-  // behavior (proceed without SMS verification) so signup never gets stuck.
-  const [phoneStep, setPhoneStep] = useState<'details' | 'otp'>('details');
-  const [phoneOtp, setPhoneOtp] = useState('');
-  const [otpError, setOtpError] = useState<string | null>(null);
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
-
   const canSubmit = name && email && password && countryCode && phoneNumber && termsAccepted && !checkingPhone;
 
-  const startResendCooldown = () => {
-    setResendCooldown(30);
-    const interval = setInterval(() => {
-      setResendCooldown((s) => {
-        if (s <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return s - 1;
-      });
-    }, 1000);
-  };
-
+  // Phone numbers are still recorded and checked for duplicates (one account
+  // per number, enforced here and at the DB level -- see
+  // supabase/schema.sql), but we no longer require SMS/WhatsApp OTP
+  // verification of the number itself. Account verification is done via
+  // email OTP only (see Auth.tsx / services/authService.ts). Real-time SMS
+  // and WhatsApp OTP for phone ownership are planned for later, once MSG91
+  // DLT (SMS) / Meta Business (WhatsApp) approvals are in place.
   const handleInitialSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
@@ -63,111 +47,11 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin, onVi
         setPhoneError('This phone number is already registered to another account. Please sign in instead, or use a different number.');
         return;
       }
-      const { configured } = await sendPhoneOtp(countryCode, phoneNumber);
-      if (!configured) {
-        // SMS OTP isn't set up on the server yet -- don't block signup.
-        onSignup(name, email, countryCode, phoneNumber, true, false, password);
-        return;
-      }
-      setPhoneStep('otp');
-      startResendCooldown();
-    } catch (err: any) {
-      setPhoneError(err.message || 'Could not send a verification code to that number.');
+      onSignup(name, email, countryCode, phoneNumber, true, false, password);
     } finally {
       setCheckingPhone(false);
     }
   };
-
-  const handleResendOtp = async () => {
-    if (resendCooldown > 0) return;
-    setOtpError(null);
-    try {
-      await sendPhoneOtp(countryCode, phoneNumber);
-      startResendCooldown();
-    } catch (err: any) {
-      setOtpError(err.message || 'Could not resend the verification code.');
-    }
-  };
-
-  const handleVerifyPhoneOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phoneOtp || verifyingOtp) return;
-    setOtpError(null);
-    setVerifyingOtp(true);
-    try {
-      await verifyPhoneOtp(countryCode, phoneNumber, phoneOtp);
-      onSignup(name, email, countryCode, phoneNumber, true, false, password);
-    } catch (err: any) {
-      setOtpError(err.message || 'Incorrect or expired code.');
-    } finally {
-      setVerifyingOtp(false);
-    }
-  };
-
-  if (phoneStep === 'otp') {
-    return (
-      <div className="min-h-screen bg-transparent text-slate-200 font-sans flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-cyan-700 drop-shadow-sm">
-              ScaleupResume
-            </h1>
-            <p className="mt-2 text-md text-slate-700 font-medium">
-              Enter the code sent to {countryCode} {phoneNumber}
-            </p>
-          </div>
-
-          <div className="bg-slate-900/80 backdrop-blur-lg p-8 rounded-lg shadow-2xl border border-white/20">
-            <form onSubmit={handleVerifyPhoneOtp} className="space-y-6">
-              <div>
-                <label htmlFor="phoneOtp" className="block text-sm font-semibold text-slate-300 mb-2">
-                  Verification Code
-                </label>
-                <input
-                  id="phoneOtp"
-                  type="text"
-                  inputMode="numeric"
-                  autoFocus
-                  value={phoneOtp}
-                  onChange={(e) => { setPhoneOtp(e.target.value); setOtpError(null); }}
-                  placeholder="Enter 4-6 digit code"
-                  className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors text-slate-200 placeholder-slate-500 tracking-widest text-lg"
-                  required
-                />
-                {otpError && <p className="text-red-400 text-xs mt-1 font-semibold">{otpError}</p>}
-              </div>
-
-              <button
-                type="submit"
-                disabled={!phoneOtp || verifyingOtp}
-                className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-all duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed disabled:saturate-50"
-              >
-                {verifyingOtp ? 'Verifying…' : 'Verify & Create Account'}
-              </button>
-
-              <div className="flex items-center justify-between text-sm">
-                <button
-                  type="button"
-                  onClick={() => { setPhoneStep('details'); setPhoneOtp(''); setOtpError(null); }}
-                  className="text-slate-400 hover:text-slate-300"
-                >
-                  ← Change phone number
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResendOtp}
-                  disabled={resendCooldown > 0}
-                  className="text-emerald-400 hover:text-emerald-300 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend code'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-transparent text-slate-200 font-sans flex items-center justify-center p-4">
