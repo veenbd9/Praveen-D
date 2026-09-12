@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { JobPosting } from '../types';
+import React, { useEffect, useState } from 'react';
+import { JobApplication, JobPosting } from '../types';
 import { searchJobs, generateMailtoLink, JobSearchFilters } from '../services/jobService';
 import { matchJobsToResume } from '../services/geminiClient';
+import { exportJobsToExcel, MAX_JOB_ROWS } from '../services/jobExportService';
+import { loadSearchState, pruneExpiredExports, recordExport, saveSearchState } from '../services/jobPersistenceService';
 
 interface JobSearchSectionProps {
     candidateName: string;
+    userEmail: string;
     resumeText: string;
     onTrackJob?: (job: JobPosting) => void;
     onApplyToJob: (job: JobPosting) => void;
@@ -36,7 +39,7 @@ const DATE_POSTED_OPTIONS = [
     { value: 'anyTime', label: 'All Dates' },
 ];
 
-export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateName, resumeText, onTrackJob, onApplyToJob }) => {
+export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateName, userEmail, resumeText, onTrackJob, onApplyToJob }) => {
     const [query, setQuery] = useState('');
     const [location, setLocation] = useState('');
     const [experienceLevel, setExperienceLevel] = useState('any');
@@ -51,8 +54,52 @@ export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateNam
     const [copiedJobId, setCopiedJobId] = useState<string | null>(null);
     const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
 
-    const runMatching = async (results: JobPosting[]) => {
-        if (!resumeText.trim() || results.length === 0) return;
+    // Restore the last search (results + filters) so switching tabs or
+    // reloading the page doesn't lose it — it only clears on logout.
+    // Also drop the internal record of any Excel export whose 3-business-day
+    // shelf life passed with no job from that batch tracked/applied to.
+    useEffect(() => {
+        const stored = loadSearchState(userEmail);
+        if (stored) {
+            setQuery(stored.query);
+            setLocation(stored.location);
+            setExperienceLevel(stored.experienceLevel);
+            setEmploymentType(stored.employmentType);
+            setDatePosted(stored.datePosted);
+            setJobs(stored.jobs);
+            setHasSearched(stored.hasSearched);
+        }
+        try {
+            const rawTracker = localStorage.getItem(`job_tracker_${userEmail}`);
+            const apps: JobApplication[] = rawTracker ? JSON.parse(rawTracker) : [];
+            const actedOnIds = new Set(apps.map(a => a.sourceJobId).filter((id): id is string => !!id));
+            pruneExpiredExports(userEmail, actedOnIds);
+        } catch {
+            // Non-fatal.
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userEmail]);
+
+    const persistAndExport = (finalJobs: JobPosting[], filters: JobSearchFilters) => {
+        saveSearchState(userEmail, {
+            query: filters.query,
+            location: filters.location,
+            experienceLevel: filters.experienceLevel || 'any',
+            employmentType: filters.employmentType || 'any',
+            datePosted: filters.datePosted || 'pastWeek',
+            jobs: finalJobs,
+            hasSearched: true,
+            savedAt: Date.now(),
+        });
+        if (finalJobs.length > 0) {
+            const label = filters.query || filters.location || 'JobSearch';
+            const filename = exportJobsToExcel(finalJobs, label);
+            recordExport(userEmail, finalJobs.map(j => j.id), filename);
+        }
+    };
+
+    const runMatching = async (results: JobPosting[]): Promise<JobPosting[]> => {
+        if (!resumeText.trim() || results.length === 0) return results;
         setIsMatching(true);
         try {
             const matches = await matchJobsToResume(
@@ -61,12 +108,15 @@ export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateNam
                 results.map(j => ({ id: j.id, title: j.title, company: j.company, description: j.description, postedAt: j.postedAt, recruiterName: j.recruiterName, recruiterTitle: j.recruiterTitle }))
             );
             const byId = new Map(matches.map(m => [m.id, m]));
-            setJobs(prev => prev.map(job => {
+            const merged = results.map(job => {
                 const m = byId.get(job.id);
                 return m ? { ...job, matchScore: m.matchScore, matchSummary: m.matchSummary, outreachMessage: m.outreachMessage } : job;
-            }));
+            });
+            setJobs(merged);
+            return merged;
         } catch {
             // Non-fatal: jobs still display without a match score.
+            return results;
         } finally {
             setIsMatching(false);
         }
@@ -82,9 +132,10 @@ export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateNam
         setExpandedJobId(null);
         try {
             const filters: JobSearchFilters = { query, location, experienceLevel, employmentType, datePosted };
-            const results = await searchJobs(filters);
+            const results = (await searchJobs(filters)).slice(0, MAX_JOB_ROWS);
             setJobs(results);
-            runMatching(results);
+            const finalJobs = await runMatching(results);
+            persistAndExport(finalJobs, filters);
         } catch (error) {
             setJobs([]);
             setSearchError(error instanceof Error ? error.message : 'Unable to search jobs right now.');
@@ -100,8 +151,10 @@ export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateNam
     });
 
     const handleApply = (job: JobPosting) => {
-        // Kick off the ATS Optimizer with this job's description pre-loaded so
-        // the user can generate a tailored resume + cover letter for it.
+        // Auto-apply: the Optimizer generates a tailored resume + cover
+        // letter for this job, then either auto-sends it to the hiring
+        // manager/recruiter email (if known) or opens the company's apply
+        // page (if only a website link is available).
         onApplyToJob(job);
     };
 
@@ -144,6 +197,9 @@ export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateNam
                 {!resumeText.trim() && (
                     <p className="text-amber-300 text-xs mt-2">Tip: Run a Health Check or paste your resume in the Optimizer first so we can score and rank these jobs for you.</p>
                 )}
+                <p className="text-slate-500 text-xs mt-2">
+                    Results (up to {MAX_JOB_ROWS} at a time) stay here until you log out and are auto-saved as a downloadable Excel file every search. Un-actioned exports are cleared from your history after 3 business days.
+                </p>
             </div>
 
             {/* Search Form */}
@@ -264,12 +320,13 @@ export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateNam
                                             <div className="flex flex-col gap-2">
                                                 <button
                                                     onClick={() => handleApply(job)}
+                                                    title={job.applyType === 'email' && job.applyEmail ? 'Generates a tailored resume + cover letter and auto-sends it to the hiring contact.' : 'Generates a tailored resume + cover letter, then opens the company\'s apply page.'}
                                                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-1.5 px-3 rounded text-xs transition-colors"
                                                 >
-                                                    Apply with Optimizer
+                                                    {job.applyType === 'email' && job.applyEmail ? 'Auto Apply (Email)' : 'Auto Apply'}
                                                 </button>
                                                 {job.applyType === 'email' && job.applyEmail ? (
-                                                    <button onClick={() => handleEmailApply(job)} className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-1.5 px-3 rounded text-xs transition-colors">Email Apply</button>
+                                                    <button onClick={() => handleEmailApply(job)} className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-1.5 px-3 rounded text-xs transition-colors">Draft Email Manually</button>
                                                 ) : job.applyUrl && (
                                                     <a href={job.applyUrl} target="_blank" rel="noopener noreferrer" className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-1.5 px-3 rounded text-xs text-center transition-colors">View Listing</a>
                                                 )}

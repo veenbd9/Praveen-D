@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { to, toName, subject, htmlContent, templateId, params } = req.body ?? {};
+  const { to, toName, subject, htmlContent, templateId, params, attachments } = req.body ?? {};
 
   if (!to || (!subject && !templateId)) {
     res.status(400).json({ error: 'Missing required fields (to, subject/templateId).' });
@@ -38,6 +38,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } else {
       payload.subject = subject;
       payload.htmlContent = htmlContent;
+    }
+
+    // Optional array of { content: base64, name: filename } used for
+    // auto-apply emails carrying the generated resume + cover letter.
+    if (Array.isArray(attachments) && attachments.length > 0) {
+      payload.attachment = attachments.map((a: { base64: string; filename: string }) => ({
+        content: a.base64,
+        name: a.filename,
+      }));
     }
 
     const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {

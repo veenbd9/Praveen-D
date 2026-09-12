@@ -93,12 +93,13 @@ export const sendTransactionalEmail = async (
   to: string,
   toName: string,
   subject: string,
-  htmlContent: string
+  htmlContent: string,
+  attachments?: { base64: string; filename: string }[]
 ) => {
   const response = await fetch('/api/send-email', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ to, toName, subject, htmlContent }),
+    body: JSON.stringify({ to, toName, subject, htmlContent, attachments }),
   });
   if (!response.ok) {
     const body = await response.json().catch(() => null);

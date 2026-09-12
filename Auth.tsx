@@ -10,6 +10,7 @@ import { signIn, signUp, signOut, getCurrentUser, sendOtp, verifyOtp, fetchProfi
 import { requestPasswordReset, updatePassword } from './services/authService';
 import { TermsOfServicePage } from './pages/TermsOfServicePage';
 import { PasswordResetPage } from './pages/PasswordResetPage';
+import { clearSearchState } from './services/jobPersistenceService';
 
 type View = 'login' | 'signup' | 'subscription' | 'terms';
 type AuthStep = 'credentials' | 'otp';
@@ -142,6 +143,7 @@ const Auth: React.FC = () => {
   };
 
   const handleLogout = async () => {
+    if (user) clearSearchState(user.email);
     await signOut();
     setUser(null);
     setAuthStep('credentials');

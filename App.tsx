@@ -22,6 +22,9 @@ import { JobTrackerBoard } from './components/JobTrackerBoard';
 import { HealthCheckView } from './components/HealthCheckView';
 import { CompanyConflictModal } from './components/CompanyConflictModal';
 import { getCompanySettings } from './services/cryptoService';
+import { buildCoverLetterAttachment, buildResumeAttachment } from './services/documentService';
+import { sendTransactionalEmail } from './services/paymentService';
+import { MAX_JOB_ROWS } from './services/jobExportService';
 import { updatePassword } from './services/authService';
 
 interface AppProps {
@@ -57,6 +60,10 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
   const [warningMessage, setWarningMessage] = useState<string>('');
   const [conflictModalOpen, setConflictModalOpen] = useState<boolean>(false);
   const [conflictData, setConflictData] = useState<CompanyConflictResult | null>(null);
+  // Set while a Job Search "Auto Apply" click is paused on the company
+  // conflict confirmation; tells the modal's onConfirm to resume the
+  // auto-apply pipeline instead of the manual Optimizer flow.
+  const [pendingAutoApplyJob, setPendingAutoApplyJob] = useState<JobPosting | null>(null);
   const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user'>('admin');
   const [activeLegalModal, setActiveLegalModal] = useState<'privacy' | 'terms' | null>(null);
   // Once a user completes a Health Check in this session, the tab is masked
@@ -82,7 +89,16 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
       const storedHistory = localStorage.getItem('generated_resumes_history');
       if (storedHistory) setApplicationHistory(JSON.parse(storedHistory));
       const storedApps = localStorage.getItem(`job_tracker_${user.email}`);
-      if (storedApps) setJobApplications(JSON.parse(storedApps));
+      if (storedApps) {
+        // Drop any auto-created (Job Search apply/track) Tracker entries
+        // whose 21-day retention window has passed. Manually added entries
+        // have no expiresAt and are kept indefinitely.
+        const now = Date.now();
+        const parsed: JobApplication[] = JSON.parse(storedApps);
+        const alive = parsed.filter(a => !a.expiresAt || a.expiresAt > now);
+        setJobApplications(alive);
+        if (alive.length !== parsed.length) localStorage.setItem(`job_tracker_${user.email}`, JSON.stringify(alive));
+      }
     } catch (error) { console.error(error); }
   }, [user.email]);
 
@@ -128,8 +144,15 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
   }, []);
 
   const saveTrackerData = (apps: JobApplication[]) => {
-      setJobApplications(apps);
-      localStorage.setItem(`job_tracker_${user.email}`, JSON.stringify(apps));
+      // Prune expired auto-created entries (21-day retention) and cap the
+      // board at MAX_JOB_ROWS, keeping the most recently touched entries.
+      const now = Date.now();
+      const alive = apps.filter(a => !a.expiresAt || a.expiresAt > now);
+      const capped = alive.length > MAX_JOB_ROWS
+          ? [...alive].sort((a, b) => b.lastUpdated - a.lastUpdated).slice(0, MAX_JOB_ROWS)
+          : alive;
+      setJobApplications(capped);
+      localStorage.setItem(`job_tracker_${user.email}`, JSON.stringify(capped));
   };
 
   const handleUpdateApplication = useCallback((updatedApp: JobApplication) => {
@@ -147,8 +170,10 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
       saveTrackerData([app, ...jobApplications]);
   }, [jobApplications, user.email]);
 
+  const TRACKER_ENTRY_TTL_MS = 21 * 24 * 60 * 60 * 1000;
+
   const handleTrackJobFromSearch = useCallback((job: JobPosting) => {
-      const newApp: JobApplication = { id: `JOB_${Date.now()}`, company: job.company, position: job.title, location: job.location, status: 'BOOKMARKED', dateAdded: Date.now(), lastUpdated: Date.now(), url: job.applyUrl, notes: `Source: ${job.source}` };
+      const newApp: JobApplication = { id: `JOB_${Date.now()}`, company: job.company, position: job.title, location: job.location, status: 'BOOKMARKED', dateAdded: Date.now(), lastUpdated: Date.now(), url: job.applyUrl, notes: `Source: ${job.source}`, sourceJobId: job.id, expiresAt: Date.now() + TRACKER_ENTRY_TTL_MS };
       saveTrackerData([newApp, ...jobApplications]);
   }, [jobApplications, user.email]);
 
@@ -222,17 +247,102 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
       try { setAnalysisResult(await analyzeResumeGeneralHealth(resumeText)); setHealthCheckUsed(true); } catch (err: any) { setError(err.message); } finally { setIsLoading(false); }
   }, [resumeText]);
 
-  const handleApplyFromJob = useCallback((job: JobPosting) => {
-      // "Apply" on a job search result activates the Optimizer with that
-      // job's description pre-loaded so the user can generate a tailored
-      // resume + cover letter for it.
+  // Builds the Tracker entry created after an auto-apply attempt. Auto-applied
+  // entries expire after 21 days (see TRACKER_ENTRY_TTL_MS) and are linked
+  // back to the source JobPosting via sourceJobId (used for export-log
+  // retention checks in JobSearchSection).
+  const buildAutoApplyTrackerEntry = (job: JobPosting, status: JobApplication['status'], notes: string): JobApplication => ({
+      id: `JOB_${Date.now()}`,
+      company: job.company,
+      position: job.title,
+      location: job.location,
+      status,
+      dateAdded: Date.now(),
+      lastUpdated: Date.now(),
+      url: job.applyUrl,
+      notes,
+      sourceJobId: job.id,
+      expiresAt: Date.now() + TRACKER_ENTRY_TTL_MS,
+      contacts: job.recruiterName ? [{ name: job.recruiterName, role: job.recruiterTitle || 'Recruiter', email: job.applyEmail || '' }] : undefined,
+  });
+
+  // Runs the actual Optimizer generation for a job, then either auto-sends
+  // the tailored resume + cover letter to the hiring contact's email, or
+  // opens the employer's apply page when only a website link is available
+  // (we cannot auto-fill arbitrary third-party application forms).
+  const performAutoApply = useCallback(async (job: JobPosting) => {
+      setIsLoading(true); setError(null);
+      try {
+          let currentUserState = { ...user };
+          const result = await analyzeAndOptimizeResume(resumeText, job.description, metricContext);
+          if (!user.isAdmin) {
+              currentUserState = { ...currentUserState, subscription: { ...currentUserState.subscription, usageCount: currentUserState.subscription.usageCount + 1 } };
+              onUpdateUser(currentUserState);
+          }
+          setAnalysisResult(result);
+          setAnalyzedCompanyName(job.company);
+          setCompanyName('');
+          const newHistoryItem: GeneratedResume = { id: Date.now().toString(), userId: user.email, timestamp: Date.now(), companyName: job.company, jobTitle: job.title, analysisResult: result, jobDescription: job.description };
+          setApplicationHistory(prev => {
+              const updated = [newHistoryItem, ...prev];
+              localStorage.setItem('generated_resumes_history', JSON.stringify(updated));
+              return updated;
+          });
+
+          const candidateName = result.candidateName || user.name;
+          if (job.applyType === 'email' && job.applyEmail) {
+              const resumeAttachment = buildResumeAttachment(result.optimizedResume, candidateName, job.company, user.subscription.planType);
+              const coverLetterAttachment = buildCoverLetterAttachment(result.coverLetter, candidateName, job.company, user.subscription.planType);
+              const subject = `Application for ${job.title} - ${candidateName}`;
+              const htmlBody = `<p>Dear ${job.recruiterName || 'Hiring Team'},</p><p>${(result.coverLetter || '').replace(/\n/g, '<br/>')}</p>`;
+              await sendTransactionalEmail(job.applyEmail, job.recruiterName || job.company, subject, htmlBody, [resumeAttachment, coverLetterAttachment]);
+              const newApp = buildAutoApplyTrackerEntry(job, 'APPLIED', `Auto-applied via ScaleupResume on ${new Date().toLocaleString()} — resume + cover letter emailed to ${job.applyEmail}.`);
+              saveTrackerData([newApp, ...jobApplications]);
+          } else if (job.applyUrl) {
+              window.open(job.applyUrl, '_blank', 'noopener,noreferrer');
+              const newApp = buildAutoApplyTrackerEntry(job, 'APPLYING', `Tailored resume + cover letter generated via ScaleupResume on ${new Date().toLocaleString()}. No hiring contact email was found, so the employer's apply page was opened for you to finish submitting.`);
+              saveTrackerData([newApp, ...jobApplications]);
+          }
+      } catch (err: any) {
+          setError(err.message || 'Failed to auto-apply to this job.');
+      } finally {
+          setIsLoading(false);
+      }
+  }, [resumeText, metricContext, user, onUpdateUser, jobApplications]);
+
+  const handleApplyFromJob = useCallback(async (job: JobPosting) => {
+      // Switch to the Optimizer immediately so the user sees the job's
+      // description/company/title while generation runs.
       setJobDescriptionText(job.description);
       setCompanyName(job.company);
       setJobTitle(job.title);
       setAnalysisResult(null);
       setActiveView('optimizer');
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-  }, []);
+
+      if (!resumeText.trim()) {
+          setError('Add your resume in the Optimizer (or complete a Health Check) before applying to jobs.');
+          return;
+      }
+      const resumeLimit = user.subscription.planType === 'free' ? 1 : user.subscription.resumeLimit ?? getPlanQuota(user.subscription.planType) ?? 1;
+      if (!user.isAdmin && user.subscription.usageCount >= resumeLimit) {
+          setLimitModalOpen(true);
+          return;
+      }
+      try {
+          const historyCompanies: string[] = Array.from(new Set(applicationHistory.map(h => h.companyName)));
+          const conflict = await detectCompanyConflict(job.company, historyCompanies);
+          if (conflict.hasConflict) {
+              setConflictData(conflict);
+              setPendingAutoApplyJob(job);
+              setConflictModalOpen(true);
+              return;
+          }
+      } catch {
+          // Non-fatal: proceed with auto-apply if the conflict check itself fails.
+      }
+      await performAutoApply(job);
+  }, [resumeText, user, applicationHistory, performAutoApply]);
   
   const handleLoadHistory = useCallback((item: GeneratedResume) => {
       setAnalysisResult(item.analysisResult); setAnalyzedCompanyName(item.companyName); setJobTitle(item.jobTitle);
@@ -262,7 +372,7 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
       {isFreePlan && !user.isAdmin && <div className="bg-gradient-to-r from-emerald-900/90 to-teal-900/90 border-b border-teal-500/30 text-center py-2 px-4 backdrop-blur-md"><p className="text-sm text-teal-200"><strong>{Math.max(0, 1 - user.subscription.usageCount)}</strong> free resume build remaining. {canSeePricing && <button onClick={onManageSubscription} className="ml-3 font-bold underline">Upgrade for more resume builds</button>}</p></div>}
       <main className="container mx-auto p-4 md:p-8 flex-grow">
         {activeView === 'health-check' && <HealthCheckView resumeText={resumeText} setResumeText={setResumeText} onAnalyze={handleHealthCheck} isLoading={isLoading} error={error} result={analysisResult} onContinueToOptimizer={() => setActiveView('optimizer')} onReset={() => { setResumeText(''); setAnalysisResult(null); setError(null); }} userEmail={user.email} isAdmin={user.isAdmin} />}
-        {activeView === 'jobs' && <JobSearchSection candidateName={user.name} resumeText={resumeText} onTrackJob={handleTrackJobFromSearch} onApplyToJob={handleApplyFromJob} />}
+        {activeView === 'jobs' && <JobSearchSection candidateName={user.name} userEmail={user.email} resumeText={resumeText} onTrackJob={handleTrackJobFromSearch} onApplyToJob={handleApplyFromJob} />}
         {activeView === 'optimizer' && <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <InputSection resumeText={resumeText} setResumeText={setResumeText} jobDescriptionText={jobDescriptionText} setJobDescriptionText={setJobDescriptionText} metricContext={metricContext} setMetricContext={setMetricContext} companyName={companyName} setCompanyName={setCompanyName} jobTitle={jobTitle} setJobTitle={setJobTitle} onAnalyze={handleAnalyze} onScan={handleScanOnly} onHealthCheck={handleHealthCheck} onFetchJd={handleFetchJd} isLoading={isLoading} isFetchingJd={isFetchingJd} savedResumes={savedResumes.filter(r => r.status === 'ACTIVE')} onSaveResume={handleSaveResume} onDeleteResume={handleSuspendResume} />
@@ -281,7 +391,21 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
       </main>
       <ChatBot user={user} />
       <ConfirmationModal isOpen={isConfirmModalOpen} onClose={() => setIsConfirmModalOpen(false)} onConfirm={handleConfirmAnalyze} title="Confirm Company Name"><p className="text-sm text-slate-400">Optimizing for: <strong className="text-emerald-400 block text-lg my-2 bg-slate-800 p-2 rounded text-center">{companyName}</strong></p></ConfirmationModal>
-      <CompanyConflictModal isOpen={conflictModalOpen} onClose={() => setConflictModalOpen(false)} onConfirm={handleConfirmAnalyze} conflictData={conflictData} />
+      <CompanyConflictModal
+        isOpen={conflictModalOpen}
+        onClose={() => { setConflictModalOpen(false); setPendingAutoApplyJob(null); }}
+        onConfirm={() => {
+          setConflictModalOpen(false);
+          if (pendingAutoApplyJob) {
+            const job = pendingAutoApplyJob;
+            setPendingAutoApplyJob(null);
+            performAutoApply(job);
+          } else {
+            handleConfirmAnalyze();
+          }
+        }}
+        conflictData={conflictData}
+      />
       {limitModalOpen && (
         <div className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4">
           <div className="bg-slate-800 border border-indigo-500/50 rounded-xl shadow-2xl max-w-lg w-full p-6">

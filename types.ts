@@ -189,6 +189,12 @@ export interface JobApplication {
     contacts?: ApplicationContact[];
     nextAction?: string;
     nextActionDate?: string;
+    // Links this Tracker entry back to the JobPosting.id it came from (set
+    // when created via the Job Search "Apply"/"Track" flow).
+    sourceJobId?: string;
+    // Entries created automatically from a Job Search apply/track action
+    // auto-expire after 21 days; manually added entries have no expiry.
+    expiresAt?: number;
 }
 
 export interface JobMatchResult {
