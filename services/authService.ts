@@ -49,6 +49,29 @@ export const fetchProfile = async (userId: string) => {
   return data;
 };
 
+/**
+ * Checks whether a phone number is already tied to another account, so the
+ * same person can't sign up multiple times under different emails using the
+ * same number. Backed by `api/check-phone.ts`, which uses the service-role
+ * key to look across all profiles (the anon key can't, due to RLS).
+ */
+export const checkPhoneDuplicate = async (countryCode: string, phoneNumber: string): Promise<boolean> => {
+  try {
+    const response = await fetch('/api/check-phone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ countryCode, phoneNumber }),
+    });
+    if (!response.ok) return false;
+    const data = await response.json();
+    return Boolean(data.isDuplicate);
+  } catch {
+    // If the check itself fails (network issue, etc.), don't block signup --
+    // the DB-level unique index in supabase/schema.sql is the hard backstop.
+    return false;
+  }
+};
+
 export const signUp = async ({ name, email, password, countryCode, phoneNumber }: SignUpInput) => {
   const { data, error } = await supabase.auth.signUp({
     email,

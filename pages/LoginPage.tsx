@@ -7,7 +7,6 @@ interface LoginPageProps {
   onVerifyOtp: (otp: string) => void;
   onResendOtp: () => void;
   authStep: 'credentials' | 'otp';
-  isSuperuserFlow: boolean;
   loginError?: string | null;
   onSwitchToSignup: () => void;
   onViewTerms: () => void;
@@ -19,7 +18,6 @@ const LoginPage: React.FC<LoginPageProps> = ({
   onVerifyOtp, 
   onResendOtp, 
   authStep, 
-  isSuperuserFlow,
   loginError,
   onSwitchToSignup,
   onViewTerms,

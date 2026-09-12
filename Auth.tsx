@@ -14,17 +14,17 @@ import { PasswordResetPage } from './pages/PasswordResetPage';
 type View = 'login' | 'signup' | 'subscription' | 'terms';
 type AuthStep = 'credentials' | 'otp';
 
-const SUPERUSER_EMAIL = 'veenbd9@gmail.com';
-
 const Auth: React.FC = () => {
   const [view, setView] = useState<View>('login');
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  // 2FA (email OTP via Supabase) — required for the superuser account only.
+  // "Verify Secure Session" (email OTP via Supabase) — this is a one-time
+  // check performed at signup only. Once an account is verified it is never
+  // asked again on subsequent logins, for any account (including the super
+  // admin, veenbd9@gmail.com).
   const [authStep, setAuthStep] = useState<AuthStep>('credentials');
-  const [isSuperuserFlow, setIsSuperuserFlow] = useState(false);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
 
@@ -84,15 +84,8 @@ const Auth: React.FC = () => {
         return;
       }
 
-      // Superuser accounts require an additional email OTP step.
-      if (lowerEmail === SUPERUSER_EMAIL) {
-        setIsSuperuserFlow(true);
-        setPendingEmail(lowerEmail);
-        setAuthStep('otp');
-        await sendOtp(lowerEmail);
-        return;
-      }
-
+      // Phone/identity verification happens once, at signup. Logging in
+      // never re-triggers it, for any account.
       completeLogin(loggedInUser);
     } catch (err: any) {
       setLoginError(err.message || 'Invalid credentials.');
@@ -118,7 +111,6 @@ const Auth: React.FC = () => {
       setView('login');
     }
     setAuthStep('credentials');
-    setIsSuperuserFlow(false);
     setPendingEmail(null);
   };
 
@@ -128,15 +120,19 @@ const Auth: React.FC = () => {
     countryCode: string,
     phoneNumber: string,
     isVerified: boolean,
-    _isPhoneDuplicate: boolean,
+    isPhoneDuplicate: boolean,
     password?: string
   ) => {
     if (!isVerified) return;
+    if (isPhoneDuplicate) {
+      setLoginError('This phone number is already registered to another account. Please sign in instead, or use a different number.');
+      setView('login');
+      return;
+    }
     try {
       await signUp({ name, email, password: password || '', countryCode, phoneNumber });
       const normalizedEmail = email.toLowerCase().trim();
       setPendingEmail(normalizedEmail);
-      setIsSuperuserFlow(false);
       setAuthStep('otp');
       await sendOtp(normalizedEmail);
     } catch (err: any) {
@@ -149,7 +145,6 @@ const Auth: React.FC = () => {
     await signOut();
     setUser(null);
     setAuthStep('credentials');
-    setIsSuperuserFlow(false);
     setPendingEmail(null);
     setView('login');
   };
@@ -221,7 +216,6 @@ const Auth: React.FC = () => {
       onVerifyOtp={handleVerifyOtp}
       onResendOtp={generateAndSendOtp}
       authStep={authStep}
-      isSuperuserFlow={isSuperuserFlow}
       loginError={loginError}
       onSwitchToSignup={() => setView('signup')}
       onViewTerms={() => setView('terms')}

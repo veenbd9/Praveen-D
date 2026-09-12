@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { checkPhoneDuplicate } from '../services/authService';
 
 interface SignupPageProps {
   onSignup: (name: string, email: string, countryCode: string, phoneNumber: string, isVerified: boolean, isPhoneDuplicate: boolean, password?: string) => void;
@@ -23,13 +24,26 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin, onVi
   const [countryCode, setCountryCode] = useState('+91');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [checkingPhone, setCheckingPhone] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   
-  const canSubmit = name && email && password && countryCode && phoneNumber && termsAccepted;
+  const canSubmit = name && email && password && countryCode && phoneNumber && termsAccepted && !checkingPhone;
 
-  const handleInitialSubmit = (e: React.FormEvent) => {
+  const handleInitialSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
-    onSignup(name, email, countryCode, phoneNumber, true, false, password);
+    setPhoneError(null);
+    setCheckingPhone(true);
+    try {
+      const isDuplicate = await checkPhoneDuplicate(countryCode, phoneNumber);
+      if (isDuplicate) {
+        setPhoneError('This phone number is already registered to another account. Please sign in instead, or use a different number.');
+        return;
+      }
+      onSignup(name, email, countryCode, phoneNumber, true, false, password);
+    } finally {
+      setCheckingPhone(false);
+    }
   };
 
   return (
@@ -99,11 +113,13 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin, onVi
                         id="phone"
                         type="tel"
                         value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        onChange={(e) => { setPhoneNumber(e.target.value); setPhoneError(null); }}
                         placeholder="9876543210"
                         className="w-full bg-slate-900/50 border border-slate-600 rounded-md p-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors text-slate-200 placeholder-slate-500"
                         required
                     />
+                    <p className="text-slate-500 text-xs mt-1">Each phone number can only be used for one account.</p>
+                    {phoneError && <p className="text-red-400 text-xs mt-1 font-semibold">{phoneError}</p>}
                  </div>
             </div>
 
@@ -160,7 +176,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin, onVi
               disabled={!canSubmit}
               className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-all duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed disabled:saturate-50"
             >
-              Create Account
+              {checkingPhone ? 'Checking phone number…' : 'Create Account'}
             </button>
           </form>
 

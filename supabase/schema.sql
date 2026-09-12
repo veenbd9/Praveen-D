@@ -24,6 +24,16 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+-- Prevent the same phone number being used to create more than one account
+-- (normalized on country code + digits-only number so formatting differences
+-- like spaces/dashes can't bypass it). Enforced at the DB level as a hard
+-- backstop; the app also checks this proactively at signup via
+-- `api/check-phone.ts` so users get a friendly error instead of a DB failure.
+drop index if exists profiles_unique_phone_idx;
+create unique index profiles_unique_phone_idx on public.profiles (
+  (coalesce(country_code, '') || regexp_replace(coalesce(phone_number, ''), '\D', '', 'g'))
+) where phone_number is not null and phone_number <> '';
+
 alter table public.profiles enable row level security;
 
 -- Users can read/update only their own profile; admins can read all via service role.
