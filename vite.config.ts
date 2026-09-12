@@ -8,6 +8,8 @@ export default defineConfig(({ mode }) => {
     process.env.SUPABASE_URL = env.SUPABASE_URL || process.env.SUPABASE_URL;
     process.env.SUPABASE_ANON_KEY = env.SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
     process.env.SUPABASE_SERVICE_ROLE_KEY = env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (env.MSG91_AUTH_KEY) process.env.MSG91_AUTH_KEY = env.MSG91_AUTH_KEY;
+    if (env.MSG91_OTP_TEMPLATE_ID) process.env.MSG91_OTP_TEMPLATE_ID = env.MSG91_OTP_TEMPLATE_ID;
     return {
       server: {
         port: 3000,

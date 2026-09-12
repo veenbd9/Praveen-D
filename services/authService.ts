@@ -72,6 +72,47 @@ export const checkPhoneDuplicate = async (countryCode: string, phoneNumber: stri
   }
 };
 
+/**
+ * Sends a real SMS OTP to the given phone number via MSG91 (api/send-phone-otp.ts)
+ * so we can confirm the signer actually owns the number, not just that it's
+ * unique. Returns `configured: false` if MSG91 hasn't been set up yet (no
+ * auth key / template id), so the caller can fall back gracefully instead of
+ * blocking signup.
+ */
+export const sendPhoneOtp = async (countryCode: string, phoneNumber: string): Promise<{ configured: boolean }> => {
+  const response = await fetch('/api/send-phone-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ countryCode, phoneNumber }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to send verification code to your phone.');
+  }
+  return { configured: Boolean(data.configured) };
+};
+
+/** Verifies the code sent by sendPhoneOtp, via api/verify-phone-otp.ts. */
+export const verifyPhoneOtp = async (
+  countryCode: string,
+  phoneNumber: string,
+  otp: string
+): Promise<{ configured: boolean; verified: boolean }> => {
+  const response = await fetch('/api/verify-phone-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ countryCode, phoneNumber, otp }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to verify your phone number.');
+  }
+  if (data.configured && !data.verified) {
+    throw new Error(data.error || 'Incorrect or expired code.');
+  }
+  return { configured: Boolean(data.configured), verified: Boolean(data.verified) };
+};
+
 export const signUp = async ({ name, email, password, countryCode, phoneNumber }: SignUpInput) => {
   const { data, error } = await supabase.auth.signUp({
     email,
