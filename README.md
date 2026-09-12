@@ -122,3 +122,40 @@ only run when deployed to Vercel (or via `vercel dev` locally).
    "Leave a review" link) and Vercel (server-side, used to fetch reviews).
 4. The widget renders automatically at the bottom of the app via
    [`components/ReviewsSection.tsx`](components/ReviewsSection.tsx).
+
+### 9. Gmail OAuth (Jobs tab "Connect Gmail" for Auto Apply)
+Job Search **Auto Apply** emails a hiring manager/recruiter directly, so it
+must be sent from the user's own Gmail account (never from
+scaleupresume.com) for deliverability and trust. This requires a one-time
+Google Cloud OAuth setup (separate from Brevo, which is only used for our own
+payment-confirmation emails):
+1. In [Google Cloud Console](https://console.cloud.google.com), create or
+   reuse a project (the same one used for the Gemini API key is fine).
+2. **APIs & Services → Library** → enable the **Gmail API**.
+3. **APIs & Services → OAuth consent screen**:
+   - User type: External.
+   - Add the scope `https://www.googleapis.com/auth/gmail.send` (and
+     `.../auth/userinfo.email`).
+   - While in **Testing** mode, add each real user's Gmail address under
+     "Test users" (Google caps this at 100 and shows an "unverified app"
+     warning screen users must click through). Submit Google's app
+     verification/CASA security review when ready to open this to the
+     public beyond test users — `gmail.send` is a restricted scope, so this
+     can take from a few days up to several weeks and may involve a paid
+     third-party security assessment.
+4. **APIs & Services → Credentials → Create Credentials → OAuth client ID**
+   (Application type: Web application). Add an **Authorized redirect URI**
+   of `https://scaleupresume.com/api/gmail-oauth-callback` (and
+   `http://localhost:3000/api/gmail-oauth-callback` / `:3001` for local dev).
+5. Copy the **Client ID** and **Client Secret** →set as `GOOGLE_OAUTH_CLIENT_ID`
+   / `GOOGLE_OAUTH_CLIENT_SECRET` in Vercel, and set
+   `GOOGLE_OAUTH_REDIRECT_URI` to the production redirect URI from step 4.
+6. In Supabase SQL Editor, re-run [`supabase/schema.sql`](supabase/schema.sql)
+   (it's additive/idempotent) so the `email_connections` table exists.
+7. Users click "Connect Gmail" on the Jobs tab, approve the Google consent
+   screen, and are redirected back with Gmail connected — see
+   [`services/gmailService.ts`](services/gmailService.ts),
+   [`lib/googleOAuth.ts`](lib/googleOAuth.ts), and the
+   `api/gmail-oauth-start.ts` / `api/gmail-oauth-callback.ts` /
+   `api/gmail-status.ts` / `api/gmail-disconnect.ts` /
+   `api/send-job-application-email.ts` serverless functions.

@@ -112,3 +112,22 @@ alter table public.reviews enable row level security;
 drop policy if exists "Reviews are publicly readable" on public.reviews;
 create policy "Reviews are publicly readable" on public.reviews
   for select using (true);
+
+-- 5. Gmail connections (for sending Job Search "Auto Apply" emails from the
+-- user's own Gmail account via the Gmail API, instead of our own domain).
+-- No RLS select policy is defined on purpose: this table holds OAuth refresh
+-- tokens, so only the serverless API (using the service_role key, which
+-- bypasses RLS) may ever read/write it. The client-facing "is Gmail
+-- connected?" check goes through api/gmail-status.ts instead of a direct
+-- table read, so a refresh_token is never sent to the browser.
+create table if not exists public.email_connections (
+  user_id uuid references auth.users on delete cascade primary key,
+  provider text not null default 'google' check (provider in ('google')),
+  email text not null,
+  refresh_token text not null,
+  access_token text,
+  access_token_expires_at timestamptz,
+  connected_at timestamptz not null default now()
+);
+
+alter table public.email_connections enable row level security;

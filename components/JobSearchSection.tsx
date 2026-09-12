@@ -4,6 +4,7 @@ import { searchJobs, generateMailtoLink, JobSearchFilters } from '../services/jo
 import { matchJobsToResume } from '../services/geminiClient';
 import { exportJobsToExcel, MAX_JOB_ROWS } from '../services/jobExportService';
 import { loadSearchState, pruneExpiredExports, recordExport, saveSearchState } from '../services/jobPersistenceService';
+import type { GmailStatus } from '../services/gmailService';
 
 interface JobSearchSectionProps {
     candidateName: string;
@@ -11,6 +12,11 @@ interface JobSearchSectionProps {
     resumeText: string;
     onTrackJob?: (job: JobPosting) => void;
     onApplyToJob: (job: JobPosting) => void;
+    gmailStatus: GmailStatus;
+    onConnectGmail: () => void;
+    onDisconnectGmail: () => void;
+    gmailConnectMessage: string | null;
+    onDismissGmailMessage: () => void;
 }
 
 const EXPERIENCE_LEVELS = [
@@ -39,7 +45,7 @@ const DATE_POSTED_OPTIONS = [
     { value: 'anyTime', label: 'All Dates' },
 ];
 
-export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateName, userEmail, resumeText, onTrackJob, onApplyToJob }) => {
+export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateName, userEmail, resumeText, onTrackJob, onApplyToJob, gmailStatus, onConnectGmail, onDisconnectGmail, gmailConnectMessage, onDismissGmailMessage }) => {
     const [query, setQuery] = useState('');
     const [location, setLocation] = useState('');
     const [experienceLevel, setExperienceLevel] = useState('any');
@@ -202,6 +208,36 @@ export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateNam
                 </p>
             </div>
 
+            {/* Gmail connection banner: Auto Apply emails a hiring manager
+                directly, so they must be sent from the user's own connected
+                Gmail account (not our domain) for deliverability and trust. */}
+            <div className="max-w-6xl mx-auto mb-6">
+                {gmailConnectMessage && (
+                    <div className="mb-3 flex items-center justify-between rounded-lg border border-emerald-500/40 bg-emerald-900/30 px-4 py-2 text-sm text-emerald-200">
+                        <span>{gmailConnectMessage}</span>
+                        <button onClick={onDismissGmailMessage} className="ml-4 text-emerald-300 hover:text-white font-bold" aria-label="Dismiss">×</button>
+                    </div>
+                )}
+                {gmailStatus.connected ? (
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-lg border border-emerald-500/30 bg-slate-800 px-4 py-3">
+                        <p className="text-sm text-slate-300">
+                            <span className="text-emerald-400 font-semibold">Gmail connected:</span> Auto Apply emails will be sent from <span className="font-mono text-slate-200">{gmailStatus.email}</span>.
+                        </p>
+                        <button onClick={onDisconnectGmail} className="text-xs text-slate-400 hover:text-red-400 underline flex-shrink-0">Disconnect</button>
+                    </div>
+                ) : (
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-lg border border-amber-500/30 bg-amber-900/20 px-4 py-3">
+                        <p className="text-sm text-amber-200">
+                            Connect your Gmail account so Auto Apply can email hiring managers directly from <span className="font-semibold">your own address</span> instead of ours.
+                        </p>
+                        <button onClick={onConnectGmail} className="flex-shrink-0 bg-white text-slate-900 hover:bg-slate-200 font-bold text-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor"><path d="M12 12.27l9.42-5.9A2 2 0 0019.5 5h-15A2 2 0 002.6 6.37l9.4 5.9zM2 8.24V17a2 2 0 002 2h16a2 2 0 002-2V8.24l-10 6.28L2 8.24z"/></svg>
+                            Connect Gmail
+                        </button>
+                    </div>
+                )}
+            </div>
+
             {/* Search Form */}
             <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-6 max-w-6xl mx-auto">
                 <input
@@ -320,10 +356,10 @@ export const JobSearchSection: React.FC<JobSearchSectionProps> = ({ candidateNam
                                             <div className="flex flex-col gap-2">
                                                 <button
                                                     onClick={() => handleApply(job)}
-                                                    title={job.applyType === 'email' && job.applyEmail ? 'Generates a tailored resume + cover letter and auto-sends it to the hiring contact.' : 'Generates a tailored resume + cover letter, then opens the company\'s apply page.'}
+                                                    title={job.applyType === 'email' && job.applyEmail ? (gmailStatus.connected ? `Generates a tailored resume + cover letter and auto-sends it to the hiring contact from ${gmailStatus.email}.` : 'Generates a tailored resume + cover letter, but requires connecting Gmail first to send it to the hiring contact.') : 'Generates a tailored resume + cover letter, then opens the company\'s apply page.'}
                                                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-1.5 px-3 rounded text-xs transition-colors"
                                                 >
-                                                    {job.applyType === 'email' && job.applyEmail ? 'Auto Apply (Email)' : 'Auto Apply'}
+                                                    {job.applyType === 'email' && job.applyEmail ? (gmailStatus.connected ? 'Auto Apply (Email)' : 'Auto Apply (Connect Gmail)') : 'Auto Apply'}
                                                 </button>
                                                 {job.applyType === 'email' && job.applyEmail ? (
                                                     <button onClick={() => handleEmailApply(job)} className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-1.5 px-3 rounded text-xs transition-colors">Draft Email Manually</button>

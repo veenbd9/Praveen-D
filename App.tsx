@@ -23,7 +23,7 @@ import { HealthCheckView } from './components/HealthCheckView';
 import { CompanyConflictModal } from './components/CompanyConflictModal';
 import { getCompanySettings } from './services/cryptoService';
 import { buildCoverLetterAttachment, buildResumeAttachment } from './services/documentService';
-import { sendTransactionalEmail } from './services/paymentService';
+import { getGmailStatus, sendJobApplicationEmail, startGmailConnect, disconnectGmail, GmailNotConnectedError, type GmailStatus } from './services/gmailService';
 import { MAX_JOB_ROWS } from './services/jobExportService';
 import { updatePassword } from './services/authService';
 
@@ -64,6 +64,12 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
   // conflict confirmation; tells the modal's onConfirm to resume the
   // auto-apply pipeline instead of the manual Optimizer flow.
   const [pendingAutoApplyJob, setPendingAutoApplyJob] = useState<JobPosting | null>(null);
+  // Whether the current user has connected their own Gmail account for
+  // sending Job Search Auto Apply emails (so hiring managers see a real,
+  // deliverable Gmail sender rather than our domain). Loaded from
+  // api/gmail-status.ts and refreshed after the OAuth connect redirect.
+  const [gmailStatus, setGmailStatus] = useState<GmailStatus>({ connected: false, email: null, connectedAt: null });
+  const [gmailConnectMessage, setGmailConnectMessage] = useState<string | null>(null);
   const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user'>('admin');
   const [activeLegalModal, setActiveLegalModal] = useState<'privacy' | 'terms' | null>(null);
   // Once a user completes a Health Check in this session, the tab is masked
@@ -112,6 +118,44 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
       }
     } catch (error) { console.error(error); }
   }, [user.email]);
+
+  // Loads whether Gmail is connected for Auto Apply, and handles the
+  // redirect back from Google's consent screen (api/gmail-oauth-callback.ts
+  // appends ?gmail_connected=1/0 to the URL before returning here).
+  useEffect(() => {
+    getGmailStatus().then(setGmailStatus).catch(() => {});
+    const url = new URL(window.location.href);
+    const connectedFlag = url.searchParams.get('gmail_connected');
+    if (connectedFlag !== null) {
+      if (connectedFlag === '1') {
+        setGmailConnectMessage('Gmail connected! Auto Apply emails will now be sent from your own Gmail account.');
+        getGmailStatus().then(setGmailStatus).catch(() => {});
+      } else {
+        setGmailConnectMessage('Gmail connection was not completed. Please try again.');
+      }
+      url.searchParams.delete('gmail_connected');
+      url.searchParams.delete('reason');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, []);
+
+  const handleConnectGmail = useCallback(async () => {
+    try {
+      await startGmailConnect();
+    } catch (err: any) {
+      setGmailConnectMessage(err.message || 'Failed to start Gmail connect.');
+    }
+  }, []);
+
+  const handleDisconnectGmail = useCallback(async () => {
+    try {
+      await disconnectGmail();
+      setGmailStatus({ connected: false, email: null, connectedAt: null });
+      setGmailConnectMessage('Gmail disconnected.');
+    } catch (err: any) {
+      setGmailConnectMessage(err.message || 'Failed to disconnect Gmail.');
+    }
+  }, []);
 
   // SIMULATED WHATSAPP NURTURING CYCLE
   useEffect(() => {
@@ -340,8 +384,11 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
               const coverLetterAttachment = buildCoverLetterAttachment(result.coverLetter, candidateName, job.company, user.subscription.planType);
               const subject = `Application for ${job.title} - ${candidateName}`;
               const htmlBody = `<p>Dear ${job.recruiterName || 'Hiring Team'},</p><p>${(result.coverLetter || '').replace(/\n/g, '<br/>')}</p>`;
-              await sendTransactionalEmail(job.applyEmail, job.recruiterName || job.company, subject, htmlBody, [resumeAttachment, coverLetterAttachment]);
-              const newApp = buildAutoApplyTrackerEntry(job, 'APPLIED', `Auto-applied via ScaleupResume on ${new Date().toLocaleString()} — resume + cover letter emailed to ${job.applyEmail}.`);
+              // Sent through the user's own connected Gmail account (Gmail
+              // API), not our domain, so the hiring manager sees a real
+              // sender they can reply to directly.
+              const sendResult = await sendJobApplicationEmail(job.applyEmail, job.recruiterName || job.company, subject, htmlBody, [resumeAttachment, coverLetterAttachment]);
+              const newApp = buildAutoApplyTrackerEntry(job, 'APPLIED', `Auto-applied via ScaleupResume on ${new Date().toLocaleString()} — resume + cover letter emailed to ${job.applyEmail} from your connected Gmail (${sendResult.from}).`);
               saveTrackerData([newApp, ...jobApplications]);
           } else if (job.applyUrl) {
               window.open(job.applyUrl, '_blank', 'noopener,noreferrer');
@@ -349,7 +396,11 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
               saveTrackerData([newApp, ...jobApplications]);
           }
       } catch (err: any) {
-          setError(err.message || 'Failed to auto-apply to this job.');
+          if (err instanceof GmailNotConnectedError) {
+              setError('Connect your Gmail account (see the banner above) so Auto Apply can email this hiring contact from your own address, then try again.');
+          } else {
+              setError(err.message || 'Failed to auto-apply to this job.');
+          }
       } finally {
           setIsLoading(false);
       }
@@ -367,6 +418,12 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
 
       if (!resumeText.trim()) {
           setError('Add your resume in the Optimizer (or complete a Health Check) before applying to jobs.');
+          return;
+      }
+      // Guard early (before spending an AI generation) if this job needs an
+      // email send and Gmail isn't connected yet.
+      if (job.applyType === 'email' && job.applyEmail && !gmailStatus.connected) {
+          setError('Connect your Gmail account (see the banner above) so Auto Apply can email this hiring contact from your own address.');
           return;
       }
       const resumeLimit = user.subscription.planType === 'free' ? 1 : user.subscription.resumeLimit ?? getPlanQuota(user.subscription.planType) ?? 1;
@@ -387,7 +444,7 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
           // Non-fatal: proceed with auto-apply if the conflict check itself fails.
       }
       await performAutoApply(job);
-  }, [resumeText, user, applicationHistory, performAutoApply]);
+  }, [resumeText, user, applicationHistory, performAutoApply, gmailStatus.connected]);
   
   const handleLoadHistory = useCallback((item: GeneratedResume) => {
       setAnalysisResult(item.analysisResult); setAnalyzedCompanyName(item.companyName); setJobTitle(item.jobTitle);
@@ -417,7 +474,7 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
       {isFreePlan && !user.isAdmin && <div className="bg-gradient-to-r from-emerald-900/90 to-teal-900/90 border-b border-teal-500/30 text-center py-2 px-4 backdrop-blur-md"><p className="text-sm text-teal-200"><strong>{Math.max(0, 1 - user.subscription.usageCount)}</strong> free resume build remaining. {canSeePricing && <button onClick={onManageSubscription} className="ml-3 font-bold underline">Upgrade for more resume builds</button>}</p></div>}
       <main className="container mx-auto p-4 md:p-8 flex-grow">
         {activeView === 'health-check' && <HealthCheckView resumeText={resumeText} setResumeText={setResumeText} onAnalyze={handleHealthCheck} isLoading={isLoading} error={error} result={analysisResult} onContinueToOptimizer={() => setActiveView('optimizer')} onReset={() => { setResumeText(''); setAnalysisResult(null); setError(null); }} userEmail={user.email} isAdmin={user.isAdmin} savedResumes={savedResumes.filter(r => r.status === 'ACTIVE')} onSetPrimaryResume={handleSetPrimaryResume} />}
-        {activeView === 'jobs' && <JobSearchSection candidateName={user.name} userEmail={user.email} resumeText={resumeText} onTrackJob={handleTrackJobFromSearch} onApplyToJob={handleApplyFromJob} />}
+        {activeView === 'jobs' && <JobSearchSection candidateName={user.name} userEmail={user.email} resumeText={resumeText} onTrackJob={handleTrackJobFromSearch} onApplyToJob={handleApplyFromJob} gmailStatus={gmailStatus} onConnectGmail={handleConnectGmail} onDisconnectGmail={handleDisconnectGmail} gmailConnectMessage={gmailConnectMessage} onDismissGmailMessage={() => setGmailConnectMessage(null)} />}
         {activeView === 'optimizer' && <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <InputSection resumeText={resumeText} setResumeText={setResumeText} jobDescriptionText={jobDescriptionText} setJobDescriptionText={setJobDescriptionText} metricContext={metricContext} setMetricContext={setMetricContext} companyName={companyName} setCompanyName={setCompanyName} jobTitle={jobTitle} setJobTitle={setJobTitle} onAnalyze={handleAnalyze} onScan={handleScanOnly} onHealthCheck={handleHealthCheck} onFetchJd={handleFetchJd} isLoading={isLoading} isFetchingJd={isFetchingJd} savedResumes={savedResumes.filter(r => r.status === 'ACTIVE')} onSaveResume={handleSaveResume} onDeleteResume={handleSuspendResume} onSetPrimaryResume={handleSetPrimaryResume} />
