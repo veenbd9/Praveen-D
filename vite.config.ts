@@ -48,6 +48,11 @@ export default defineConfig(({ mode }) => {
           req.on('end', async () => {
             try {
               (req as typeof req & { body?: unknown }).body = rawBody ? JSON.parse(rawBody) : {};
+              // Real Vercel requests come with `req.query` pre-parsed; replicate
+              // that here so handlers like api/jobs.ts (which reads req.query.*)
+              // work the same locally as in production.
+              (req as typeof req & { query?: Record<string, string | string[]> }).query =
+                Object.fromEntries(url.searchParams.entries());
               const response = res as typeof res & {
                 status: (code: number) => typeof res;
                 json: (body: unknown) => void;
