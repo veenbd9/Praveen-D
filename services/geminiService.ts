@@ -39,7 +39,7 @@ export const fetchJdFromUrl = async (url: string): Promise<string> => {
     try {
         return await retryWithBackoff(async () => {
             const response = await ai.models.generateContent({
-                model: 'gemini-3.1-pro-preview',
+                model: 'gemini-3-flash-preview',
                 contents: prompt,
             });
             return response.text?.trim() || "";
@@ -59,7 +59,7 @@ const getInitialScore = async (resume: string, jobDescription: string): Promise<
   `;
   return await retryWithBackoff(async () => {
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -146,7 +146,7 @@ const getOptimizedResume = async (resume: string, jobDescription: string, metric
   `;
   return await retryWithBackoff(async () => {
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -170,7 +170,7 @@ const getOptimizedResume = async (resume: string, jobDescription: string, metric
 const generateCoverLetter = async (resume: string, jobDescription: string): Promise<string> => {
     const prompt = `Write a compelling cover letter based on: ${resume} and ${jobDescription}.`;
     return await retryWithBackoff(async () => {
-        const response = await ai.models.generateContent({ model: 'gemini-3.1-pro-preview', contents: prompt });
+        const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
         return postProcessText(response.text || "");
     });
 };
@@ -178,7 +178,7 @@ const generateCoverLetter = async (resume: string, jobDescription: string): Prom
 export const regenerateCoverLetter = async (currentLetter: string, jobDescription: string, instructions: string): Promise<string> => {
     const prompt = `Refine this cover letter: "${currentLetter}" based on: "${instructions}". Context: ${jobDescription}.`;
     return await retryWithBackoff(async () => {
-        const response = await ai.models.generateContent({ model: 'gemini-3.1-pro-preview', contents: prompt });
+        const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
         return postProcessText(response.text || "");
     });
 };
@@ -227,7 +227,7 @@ export const analyzeResumeGeneralHealth = async (resume: string): Promise<Analys
     const prompt = `Analyze general resume health for ATS parsing: ${resume}`;
     return await retryWithBackoff(async () => {
         const response = await ai.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+            model: 'gemini-3-flash-preview',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -299,7 +299,7 @@ export const brainstormResumeContent = async (jobTitle: string): Promise<Brainst
     const prompt = `Generate summary and bullets for: ${jobTitle}`;
     return await retryWithBackoff(async () => {
         const response = await ai.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+            model: 'gemini-3-flash-preview',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -325,7 +325,7 @@ export const analyzeMarketTrends = async (role: string, location: string): Promi
     const prompt = `Analyze market trends for "${role}" in "${location}".`;
     return await retryWithBackoff(async () => {
          const response = await ai.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
+            model: 'gemini-3-flash-preview',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -361,7 +361,7 @@ export const analyzeMarketTrends = async (role: string, location: string): Promi
 export const applyStructuralFixes = async (resume: string, recommendations: string[]): Promise<string> => {
     const prompt = `Apply these structural fixes to the resume: ${recommendations.join(', ')}. Resume: ${resume}`;
     return await retryWithBackoff(async () => {
-        const response = await ai.models.generateContent({ model: 'gemini-3.1-pro-preview', contents: prompt });
+        const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
         return postProcessText(response.text || "");
     });
 };
@@ -400,7 +400,7 @@ export const detectCompanyConflict = async (inputCompanyName: string, historyCom
 
 export const createSupportChatSession = (user: User): Chat => {
     return ai.chats.create({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-3-flash-preview',
         config: {
             systemInstruction: `You are the Support Assistant for 'ScaleupResume' (AI Powered ATS Dominance).
             Your purpose is to assist with features: Resume Building, Billing, and Market Research.
