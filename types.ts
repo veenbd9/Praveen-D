@@ -49,6 +49,11 @@ export interface SavedResume {
   name: string;
   content: string;
   status: 'ACTIVE' | 'SUSPENDED';
+  // The single resume used by default for Health Check / Optimizer. Only one
+  // resume in the list may have isPrimary true at a time; using a different
+  // resume promotes it to primary while the previous one stays ACTIVE
+  // (just no longer the default) rather than being deleted.
+  isPrimary?: boolean;
 }
 
 export interface BrainstormResult {

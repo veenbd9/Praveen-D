@@ -24,6 +24,7 @@ interface InputSectionProps {
   savedResumes: SavedResume[];
   onSaveResume: (resume: SavedResume) => void;
   onDeleteResume: (resumeId: number) => void;
+  onSetPrimaryResume: (resumeId: number) => void;
 }
 
 export const InputSection: React.FC<InputSectionProps> = ({
@@ -46,6 +47,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
   savedResumes,
   onSaveResume,
   onDeleteResume,
+  onSetPrimaryResume,
 }) => {
   
   const [jdInputMode, setJdInputMode] = useState<JdInputMode>('text');
@@ -92,11 +94,21 @@ export const InputSection: React.FC<InputSectionProps> = ({
 
         <div className="mt-4">
           <h3 className="text-md font-semibold text-slate-400 mb-2">Saved Resumes</h3>
+          <p className="text-xs text-slate-500 mb-2">Tick a resume as Primary to use it by default for Health Check and the Optimizer. Nothing is deleted when you switch — older resumes just move down the list.</p>
           <div className="max-h-32 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
             {savedResumes.length > 0 ? (
               savedResumes.map(resume => (
-                <div key={resume.id} className="bg-slate-800 p-2 rounded-md flex justify-between items-center text-sm animate-fade-in-fast border border-slate-700">
-                  <p className="truncate text-slate-300 flex-grow" title={resume.name}>{resume.name}</p>
+                <div key={resume.id} className={`bg-slate-800 p-2 rounded-md flex justify-between items-center text-sm animate-fade-in-fast border ${resume.isPrimary ? 'border-indigo-500' : 'border-slate-700'}`}>
+                  <label className="flex items-center flex-grow min-w-0 cursor-pointer" title="Set as Primary (default) resume">
+                    <input
+                      type="checkbox"
+                      checked={!!resume.isPrimary}
+                      onChange={() => !resume.isPrimary && onSetPrimaryResume(resume.id)}
+                      className="mr-2 flex-shrink-0 accent-indigo-500"
+                    />
+                    <p className="truncate text-slate-300" title={resume.name}>{resume.name}</p>
+                    {resume.isPrimary && <span className="ml-2 flex-shrink-0 text-[10px] font-bold uppercase tracking-wide text-indigo-300 bg-indigo-900/50 px-1.5 py-0.5 rounded">Primary</span>}
+                  </label>
                   <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
                     <button onClick={() => setResumeText(resume.content)} className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">Select</button>
                     <button onClick={() => onDeleteResume(resume.id)} className="text-slate-500 hover:text-red-400 transition-colors" aria-label={`Delete ${resume.name}`}>

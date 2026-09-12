@@ -85,7 +85,18 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
              localStorage.setItem('savedResumes', JSON.stringify(loadedResumes));
          }
       }
+      // Migrate resumes saved before the "primary" concept existed: if none
+      // is flagged, treat the most recent one (array's first entry) as
+      // primary so existing users keep a sensible default.
+      if (loadedResumes.length > 0 && !loadedResumes.some(r => r.isPrimary)) {
+          loadedResumes = loadedResumes.map((r, idx) => ({ ...r, isPrimary: idx === 0 }));
+          localStorage.setItem('savedResumes', JSON.stringify(loadedResumes));
+      }
       setSavedResumes(loadedResumes);
+      // Pre-fill the working resume with the primary one so Health Check and
+      // the Optimizer default to it without requiring a re-upload/re-paste.
+      const primary = loadedResumes.find(r => r.isPrimary);
+      if (primary) setResumeText(primary.content);
       const storedHistory = localStorage.getItem('generated_resumes_history');
       if (storedHistory) setApplicationHistory(JSON.parse(storedHistory));
       const storedApps = localStorage.getItem(`job_tracker_${user.email}`);
@@ -118,11 +129,38 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
       }
   }, [user, onUpdateUser]);
 
+  // Adding a resume (paste, upload, or otherwise) makes it the new primary
+  // (default) resume for Health Check / Optimizer going forward. Previously
+  // primary resumes are demoted but stay ACTIVE and visible further down the
+  // saved list — nothing is ever deleted by this promotion.
   const handleSaveResume = useCallback((newResume: SavedResume) => {
     setSavedResumes(prevResumes => {
-      if (prevResumes.some(r => r.content === newResume.content && r.status === 'ACTIVE')) return prevResumes;
-      const updatedResumes: SavedResume[] = [{ ...newResume, status: 'ACTIVE' }, ...prevResumes]; 
+      const existing = prevResumes.find(r => r.content === newResume.content && r.status === 'ACTIVE');
+      let updatedResumes: SavedResume[];
+      if (existing) {
+        // Re-using an already-saved resume just promotes it to primary and
+        // moves it to the top; it isn't duplicated in the list.
+        const rest = prevResumes.filter(r => r.id !== existing.id).map(r => ({ ...r, isPrimary: false }));
+        updatedResumes = [{ ...existing, isPrimary: true }, ...rest];
+      } else {
+        const rest = prevResumes.map(r => ({ ...r, isPrimary: false }));
+        updatedResumes = [{ ...newResume, status: 'ACTIVE', isPrimary: true }, ...rest];
+      }
       localStorage.setItem('savedResumes', JSON.stringify(updatedResumes));
+      return updatedResumes;
+    });
+  }, []);
+
+  // Lets the user explicitly tick a different saved resume as primary
+  // (default) without editing its content or status.
+  const handleSetPrimaryResume = useCallback((resumeId: number) => {
+    setSavedResumes(prevResumes => {
+      const target = prevResumes.find(r => r.id === resumeId);
+      if (!target) return prevResumes;
+      const rest = prevResumes.filter(r => r.id !== resumeId).map(r => ({ ...r, isPrimary: false }));
+      const updatedResumes: SavedResume[] = [{ ...target, isPrimary: true }, ...rest];
+      localStorage.setItem('savedResumes', JSON.stringify(updatedResumes));
+      setResumeText(target.content);
       return updatedResumes;
     });
   }, []);
@@ -244,8 +282,15 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
       if (!resumeText) return setError('Resume required.');
       setError(null);
       setIsLoading(true); setCompanyName(''); setJobDescriptionText(''); setAnalyzedCompanyName('Health Check');
-      try { setAnalysisResult(await analyzeResumeGeneralHealth(resumeText)); setHealthCheckUsed(true); } catch (err: any) { setError(err.message); } finally { setIsLoading(false); }
-  }, [resumeText]);
+      try {
+        setAnalysisResult(await analyzeResumeGeneralHealth(resumeText));
+        setHealthCheckUsed(true);
+        // Whichever resume the user just ran a Health Check with becomes the
+        // primary (default) one for next time — either promoting it if it's
+        // already saved, or saving it fresh if it's newly pasted text.
+        handleSaveResume({ id: Date.now(), name: `Health Check - ${new Date().toLocaleDateString()}`, content: resumeText, status: 'ACTIVE' });
+      } catch (err: any) { setError(err.message); } finally { setIsLoading(false); }
+  }, [resumeText, handleSaveResume]);
 
   // Builds the Tracker entry created after an auto-apply attempt. Auto-applied
   // entries expire after 21 days (see TRACKER_ENTRY_TTL_MS) and are linked
@@ -371,11 +416,11 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
       </div>
       {isFreePlan && !user.isAdmin && <div className="bg-gradient-to-r from-emerald-900/90 to-teal-900/90 border-b border-teal-500/30 text-center py-2 px-4 backdrop-blur-md"><p className="text-sm text-teal-200"><strong>{Math.max(0, 1 - user.subscription.usageCount)}</strong> free resume build remaining. {canSeePricing && <button onClick={onManageSubscription} className="ml-3 font-bold underline">Upgrade for more resume builds</button>}</p></div>}
       <main className="container mx-auto p-4 md:p-8 flex-grow">
-        {activeView === 'health-check' && <HealthCheckView resumeText={resumeText} setResumeText={setResumeText} onAnalyze={handleHealthCheck} isLoading={isLoading} error={error} result={analysisResult} onContinueToOptimizer={() => setActiveView('optimizer')} onReset={() => { setResumeText(''); setAnalysisResult(null); setError(null); }} userEmail={user.email} isAdmin={user.isAdmin} />}
+        {activeView === 'health-check' && <HealthCheckView resumeText={resumeText} setResumeText={setResumeText} onAnalyze={handleHealthCheck} isLoading={isLoading} error={error} result={analysisResult} onContinueToOptimizer={() => setActiveView('optimizer')} onReset={() => { setResumeText(''); setAnalysisResult(null); setError(null); }} userEmail={user.email} isAdmin={user.isAdmin} savedResumes={savedResumes.filter(r => r.status === 'ACTIVE')} onSetPrimaryResume={handleSetPrimaryResume} />}
         {activeView === 'jobs' && <JobSearchSection candidateName={user.name} userEmail={user.email} resumeText={resumeText} onTrackJob={handleTrackJobFromSearch} onApplyToJob={handleApplyFromJob} />}
         {activeView === 'optimizer' && <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <InputSection resumeText={resumeText} setResumeText={setResumeText} jobDescriptionText={jobDescriptionText} setJobDescriptionText={setJobDescriptionText} metricContext={metricContext} setMetricContext={setMetricContext} companyName={companyName} setCompanyName={setCompanyName} jobTitle={jobTitle} setJobTitle={setJobTitle} onAnalyze={handleAnalyze} onScan={handleScanOnly} onHealthCheck={handleHealthCheck} onFetchJd={handleFetchJd} isLoading={isLoading} isFetchingJd={isFetchingJd} savedResumes={savedResumes.filter(r => r.status === 'ACTIVE')} onSaveResume={handleSaveResume} onDeleteResume={handleSuspendResume} />
+                <InputSection resumeText={resumeText} setResumeText={setResumeText} jobDescriptionText={jobDescriptionText} setJobDescriptionText={setJobDescriptionText} metricContext={metricContext} setMetricContext={setMetricContext} companyName={companyName} setCompanyName={setCompanyName} jobTitle={jobTitle} setJobTitle={setJobTitle} onAnalyze={handleAnalyze} onScan={handleScanOnly} onHealthCheck={handleHealthCheck} onFetchJd={handleFetchJd} isLoading={isLoading} isFetchingJd={isFetchingJd} savedResumes={savedResumes.filter(r => r.status === 'ACTIVE')} onSaveResume={handleSaveResume} onDeleteResume={handleSuspendResume} onSetPrimaryResume={handleSetPrimaryResume} />
                 <div className="flex flex-col space-y-8" ref={resultsRef}>{isLoading && <div className="flex flex-col items-center justify-center p-8 h-full"><Loader /><p className="text-lg text-emerald-400 mt-4">Securing your future...</p></div>}
                 {error && <div className="bg-red-900/90 border border-red-700 text-red-100 px-4 py-3 rounded-lg"><strong>Error: </strong>{error}</div>}
                 {analysisResult && !isLoading && <ResultsSection result={analysisResult} candidateName={analysisResult.candidateName} companyName={analyzedCompanyName || companyName} planType={user.subscription.planType} jobDescription={jobDescriptionText} showDeepDive={user.isAdmin} onSaveToProfile={(content, name) => handleSaveResume({ id: Date.now(), name, content, status: 'ACTIVE' })} />}

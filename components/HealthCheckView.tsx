@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { AnalysisResult } from '../types';
+import { AnalysisResult, SavedResume } from '../types';
 import { FileInput } from './FileInput';
 import { ScoreDisplay } from './ScoreDisplay';
 import { applyStructuralFixes } from '../services/geminiClient';
@@ -18,6 +18,8 @@ interface HealthCheckViewProps {
   onReset: () => void;
   userEmail: string;
   isAdmin: boolean;
+  savedResumes: SavedResume[];
+  onSetPrimaryResume: (resumeId: number) => void;
 }
 
 export const HealthCheckView: React.FC<HealthCheckViewProps> = ({ 
@@ -30,7 +32,9 @@ export const HealthCheckView: React.FC<HealthCheckViewProps> = ({
     onContinueToOptimizer,
     onReset,
     userEmail,
-    isAdmin
+    isAdmin,
+    savedResumes,
+    onSetPrimaryResume
 }) => {
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     
@@ -127,6 +131,29 @@ export const HealthCheckView: React.FC<HealthCheckViewProps> = ({
                                 ) : 'Check My Score'}
                             </button>
                         </div>
+                        {savedResumes.length > 0 && (
+                            <div className="mt-6 pt-6 border-t border-slate-700">
+                                <h3 className="text-sm font-semibold text-slate-400 mb-2">Saved Resumes</h3>
+                                <p className="text-xs text-slate-500 mb-2">Tick a resume as Primary to use it by default for your next Health Check and Optimizer run. Switching primaries never deletes an older resume — it just moves down the list.</p>
+                                <div className="max-h-32 overflow-y-auto space-y-2 pr-2 custom-scrollbar text-left">
+                                    {savedResumes.map(resume => (
+                                        <div key={resume.id} className={`bg-slate-900 p-2 rounded-md flex justify-between items-center text-sm border ${resume.isPrimary ? 'border-teal-500' : 'border-slate-700'}`}>
+                                            <label className="flex items-center flex-grow min-w-0 cursor-pointer" title="Set as Primary (default) resume">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!resume.isPrimary}
+                                                    onChange={() => !resume.isPrimary && onSetPrimaryResume(resume.id)}
+                                                    className="mr-2 flex-shrink-0 accent-teal-500"
+                                                />
+                                                <span className="truncate text-slate-300" title={resume.name}>{resume.name}</span>
+                                                {resume.isPrimary && <span className="ml-2 flex-shrink-0 text-[10px] font-bold uppercase tracking-wide text-teal-300 bg-teal-900/50 px-1.5 py-0.5 rounded">Primary</span>}
+                                            </label>
+                                            <button onClick={() => setResumeText(resume.content)} className="text-teal-400 hover:text-teal-300 font-medium transition-colors flex-shrink-0 ml-2">Select</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
                 {error && (
