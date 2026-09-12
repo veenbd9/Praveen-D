@@ -145,8 +145,8 @@ payment-confirmation emails):
      third-party security assessment.
 4. **APIs & Services → Credentials → Create Credentials → OAuth client ID**
    (Application type: Web application). Add an **Authorized redirect URI**
-   of `https://scaleupresume.com/api/gmail-oauth-callback` (and
-   `http://localhost:3000/api/gmail-oauth-callback` / `:3001` for local dev).
+   of `https://scaleupresume.com/api/gmail?action=callback` (and
+   `http://localhost:3000/api/gmail?action=callback` / `:3001` for local dev).
 5. Copy the **Client ID** and **Client Secret** →set as `GOOGLE_OAUTH_CLIENT_ID`
    / `GOOGLE_OAUTH_CLIENT_SECRET` in Vercel, and set
    `GOOGLE_OAUTH_REDIRECT_URI` to the production redirect URI from step 4.
@@ -155,7 +155,7 @@ payment-confirmation emails):
 7. Users click "Connect Gmail" on the Jobs tab, approve the Google consent
    screen, and are redirected back with Gmail connected — see
    [`services/gmailService.ts`](services/gmailService.ts),
-   [`lib/googleOAuth.ts`](lib/googleOAuth.ts), and the
-   `api/gmail-oauth-start.ts` / `api/gmail-oauth-callback.ts` /
-   `api/gmail-status.ts` / `api/gmail-disconnect.ts` /
-   `api/send-job-application-email.ts` serverless functions.
+   [`lib/googleOAuth.ts`](lib/googleOAuth.ts), and the consolidated
+   [`api/gmail.ts`](api/gmail.ts) serverless function (routed by
+   `?action=start|callback|status|disconnect|send` — kept as a single
+   function since the Vercel Hobby plan caps a deployment at 12 functions).

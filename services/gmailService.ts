@@ -2,8 +2,8 @@ import { supabase } from './supabaseClient';
 
 // Client for the "Connect Gmail for Job Applications" feature: users
 // authorize ScaleupResume to send Auto Apply emails through their own Gmail
-// account (see api/gmail-oauth-start.ts, api/gmail-oauth-callback.ts,
-// api/gmail-status.ts, api/gmail-disconnect.ts, api/send-job-application-email.ts).
+// account (see api/gmail.ts, routed by ?action= to keep the feature as a
+// single Vercel Serverless Function).
 
 const getAccessToken = async (): Promise<string> => {
   const { data } = await supabase.auth.getSession();
@@ -20,7 +20,7 @@ export interface GmailStatus {
 
 export const getGmailStatus = async (): Promise<GmailStatus> => {
   const token = await getAccessToken();
-  const res = await fetch('/api/gmail-status', { headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetch('/api/gmail?action=status', { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error('Failed to check Gmail connection status.');
   return res.json();
 };
@@ -29,7 +29,7 @@ export const getGmailStatus = async (): Promise<GmailStatus> => {
 // a popup) so the OAuth redirect flow works reliably across browsers.
 export const startGmailConnect = async (): Promise<void> => {
   const token = await getAccessToken();
-  const res = await fetch('/api/gmail-oauth-start', {
+  const res = await fetch('/api/gmail?action=start', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -43,7 +43,7 @@ export const startGmailConnect = async (): Promise<void> => {
 
 export const disconnectGmail = async (): Promise<void> => {
   const token = await getAccessToken();
-  const res = await fetch('/api/gmail-disconnect', {
+  const res = await fetch('/api/gmail?action=disconnect', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -67,7 +67,7 @@ export const sendJobApplicationEmail = async (
   attachments?: { base64: string; filename: string }[]
 ): Promise<{ sent: true; messageId: string; from: string }> => {
   const token = await getAccessToken();
-  const res = await fetch('/api/send-job-application-email', {
+  const res = await fetch('/api/gmail?action=send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ to, toName, subject, htmlContent, attachments }),

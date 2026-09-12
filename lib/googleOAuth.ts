@@ -12,7 +12,7 @@ const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes to complete the consent screen
 
 export const getRedirectUri = (): string =>
-  process.env.GOOGLE_OAUTH_REDIRECT_URI || 'http://localhost:3000/api/gmail-oauth-callback';
+  process.env.GOOGLE_OAUTH_REDIRECT_URI || 'http://localhost:3000/api/gmail?action=callback';
 
 // The OAuth "state" param round-trips through Google unmodified, so we use it
 // to carry (and authenticate) which ScaleupResume user initiated the consent

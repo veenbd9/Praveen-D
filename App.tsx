@@ -67,7 +67,7 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
   // Whether the current user has connected their own Gmail account for
   // sending Job Search Auto Apply emails (so hiring managers see a real,
   // deliverable Gmail sender rather than our domain). Loaded from
-  // api/gmail-status.ts and refreshed after the OAuth connect redirect.
+  // api/gmail.ts (?action=status) and refreshed after the OAuth connect redirect.
   const [gmailStatus, setGmailStatus] = useState<GmailStatus>({ connected: false, email: null, connectedAt: null });
   const [gmailConnectMessage, setGmailConnectMessage] = useState<string | null>(null);
   const [adminViewMode, setAdminViewMode] = useState<'admin' | 'user'>('admin');
@@ -120,7 +120,7 @@ const App: React.FC<AppProps> = ({ user, onLogout, onManageSubscription, onUpdat
   }, [user.email]);
 
   // Loads whether Gmail is connected for Auto Apply, and handles the
-  // redirect back from Google's consent screen (api/gmail-oauth-callback.ts
+  // redirect back from Google's consent screen (api/gmail.ts's ?action=callback
   // appends ?gmail_connected=1/0 to the URL before returning here).
   useEffect(() => {
     getGmailStatus().then(setGmailStatus).catch(() => {});
